@@ -29,18 +29,22 @@ class CenterComponentDialog(object):
         self.w.close()
 
 def center_components_in_reference_height_y(reference_height_type, layer_option="All Layers"):
+    font = Glyphs.font
+    selected_glyphs = [l.parent for l in font.selectedLayers]
+
     if layer_option == "Current Layer":
         layers = font.selectedLayers
     elif layer_option == "All Layers":
-        layers = [layer for glyph in font.glyphs for layer in glyph.layers]
+        layers = [layer for glyph in selected_glyphs for layer in glyph.layers]
     else:
         raise ValueError("Invalid layer option.")
     
     for layer in layers:
+        master = layer.master
         if reference_height_type == "Cap Height":
-            reference_height = layer.master.capHeight
+            reference_height = master.capHeight
         elif reference_height_type == "X-Height":
-            reference_height = layer.master.xHeight
+            reference_height = master.xHeight
         elif reference_height_type == "Total Height":
             reference_height = layer.bounds.size.height
         else:
