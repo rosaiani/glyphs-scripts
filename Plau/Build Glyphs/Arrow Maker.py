@@ -1,12 +1,12 @@
+#MenuTitle: Build Arrows from Hyphen
 # -*- coding: utf-8 -*-
-# MenuTitle: Plau – Build Arrows from Hyphen (UI, resizable, backup, stems)
 # Shortcut: cmd+opt+shift+a
 # Description: Cria setas (← → ↑ ↓ ↔ ↕) a partir do hyphen como componente, em TODAS as masters.
 # Usa largura base do emdash (se existir) ou hyphen×fator. Espessura (haste/cabeça) baseada no
 # “stem” vertical da master (ou espessura do hyphen, como fallback). UI redimensionável.
 # Se o glifo já existir, pode perguntar/ignorar/substituir (com backup das layers).
 
-from GlyphsApp import Glyphs, GSComponent, GSGlyph, GSPath, GSNode, GSLayer, Message
+from GlyphsApp import Glyphs, GSComponent, GSGlyph, GSPath, GSNode, GSLayer, Message, LINE
 import vanilla
 from datetime import datetime
 
@@ -61,7 +61,7 @@ def add_triangle(layer, baseX, centerY, height, length, direction='right'):
         return
     path = GSPath()
     for x, y in pts:
-        path.nodes.append(GSNode((x, y), type=GSNode.LINE))
+        path.nodes.append(GSNode((x, y), type=LINE))
     path.closed = True
     layer.shapes.append(path)
 

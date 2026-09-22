@@ -1,5 +1,5 @@
+#MenuTitle: Build En and Em Dashes from Hyphen
 # -*- coding: utf-8 -*-
-# MenuTitle: Plau – Build En/Em Dashes from Hyphen (component + width %)
 # Shortcut: cmd+opt+shift+d
 # Description: Cria endash (–) e emdash (—) a partir do hyphen, usando o hyphen como componente. endash = 140% da largura do hyphen; emdash = 180%. LSB/RSB paramétricos: =hyphen.
 

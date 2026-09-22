@@ -1,5 +1,5 @@
+#MenuTitle: Build Periodcentered and Bullet
 # -*- coding: utf-8 -*-
-# MenuTitle: Build periodcentered & bullet from period (Glyphs 3.4; L/R keys only, no leading '=')
 """
 Glyphs 3.4 (3425)
 
@@ -117,7 +117,7 @@ def build_target(target_name, unicode_hex, comp_scale, lr_key_no_eq):
         comp_x = 0.0
 
         comp = GSComponent(SOURCE_GLYPH_NAME)
-        comp.alignment = 0
+        comp.automaticAlignment = False
         comp.scale = (comp_scale, comp_scale)
         comp.position = (comp_x, comp_y)
         tgt_layer.shapes.append(comp)

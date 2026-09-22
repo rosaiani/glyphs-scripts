@@ -1,5 +1,5 @@
+#MenuTitle: Center Components in Reference Height
 # -*- coding: utf-8 -*-
-# MenuTitle: Plau – Center Components in Reference Height (Y)
 # Shortcut: cmd+opt+shift+c
 # Description: Centers components along Y based on Cap Height, x-Height, or Total Layer Height. Works on current or all layers of selected glyphs.
 

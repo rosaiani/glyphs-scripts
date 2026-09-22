@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# MenuTitle: Preset Plau – Fill metadata (com campo de cliente)
+#MenuTitle: Preset Plau - Fill Metadata
 # -*- coding: utf-8 -*-
 
 from GlyphsApp import Glyphs, Message
