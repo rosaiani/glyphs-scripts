@@ -5,9 +5,7 @@
 
 import vanilla
 from GlyphsApp import Glyphs, Message
-from AppKit import NSPoint
 
-font = Glyphs.font
 
 class CenterComponentDialog(object):
     def __init__(self):
@@ -82,7 +80,7 @@ def center_components_in_reference_height_y(reference_height_type, layer_option=
 
             # Keep x as-is
             old_pos = component.position
-            component.position = NSPoint(old_pos.x, new_y)
+            component.position = (old_pos.x, new_y)
             count_components += 1
 
     print("✅ Center Components (Y): alinhados {0} componentes pelo critério '{1}' em '{2}'.".format(

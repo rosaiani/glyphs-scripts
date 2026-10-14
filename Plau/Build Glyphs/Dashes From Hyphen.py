@@ -34,7 +34,7 @@ def clear_and_make_component(layer, baseName):
 
 def build_dash_from_hyphen(font, dashName, factor):
     # tenta hyphen padrão; se faltar, tenta hyphen-minus (fallback raro)
-    hyphen = font.glyphs['hyphen'] or font.glyphs.get('hyphen-minus')
+    hyphen = font.glyphs['hyphen'] or font.glyphs['hyphen-minus']
     if not hyphen:
         raise RuntimeError('Glifo "hyphen" não encontrado.')
 

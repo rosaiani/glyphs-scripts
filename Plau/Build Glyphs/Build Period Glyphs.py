@@ -1,7 +1,7 @@
 #MenuTitle: Build Periodcentered and Bullet
 # -*- coding: utf-8 -*-
 """
-Glyphs 3.4 (3425)
+Glyphs 4
 
 Cria/atualiza a partir do componente "period":
 - periodcentered (U+00B7): y = (xHeight/2) + 5; LSB/RSB = "period"; escala 1.0
@@ -55,16 +55,8 @@ def ensure_master_layer(glyph, master):
     return layer
 
 def clear_layer(layer):
-    for shp in list(layer.shapes)[::-1]:
-        try: layer.removeShape_(shp)
-        except Exception:
-            try: shp.removeFromParent()
-            except Exception: pass
-    for anc in list(layer.anchors)[::-1]:
-        try: layer.removeAnchor_(anc)
-        except Exception:
-            try: anc.removeFromParent()
-            except Exception: pass
+    layer.shapes = []
+    layer.anchors = []
 
 def period_layer_for_master(master):
     src_g = get_glyph(SOURCE_GLYPH_NAME)

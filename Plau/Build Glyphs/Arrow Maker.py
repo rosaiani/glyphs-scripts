@@ -38,7 +38,7 @@ def clear_layer(layer):
     layer.shapes = []
 
 def hyphen_or_minus(font):
-    return font.glyphs['hyphen'] or font.glyphs.get('hyphen-minus')
+    return font.glyphs['hyphen'] or font.glyphs['hyphen-minus']
 
 def add_component(layer, baseName, sx=1.0, sy=1.0, dx=0.0, dy=0.0):
     c = GSComponent(baseName)
@@ -135,7 +135,7 @@ def build_horizontal(font, name, factor, head_pct, head_thick, stem_per_master, 
         if has_content and replace_mode == "replace_backup":
             backup_glyph_layers(g)
 
-    em = font.glyphs.get('emdash')
+    em = font.glyphs['emdash']
 
     for m in font.masters:
         mid = m.id
