@@ -116,6 +116,8 @@ def build_target(target_name, unicode_hex, comp_scale, lr_key_no_eq):
 
         # aplica LSB/RSB keys (sem '=' e só no layer)
         set_lr_keys_layer_only(tgt_layer, g, lr_key_no_eq)
+        # Glyphs 4 não aplica as keys sozinho: sem isso a largura/LSB/RSB ficam desatualizados
+        tgt_layer.syncMetrics()
 
         print(u"✓ {} @ {}: y={:.2f}, scale={}, L/R key='{}'".format(
             target_name, m.name, comp_y, comp_scale, lr_key_no_eq

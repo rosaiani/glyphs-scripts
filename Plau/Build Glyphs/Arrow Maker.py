@@ -28,6 +28,9 @@ UNICODES = {
 
 def ensure_glyph(font, name):
     g = font.glyphs[name]
+    if not g and name in UNICODES:
+        # Glyphs 4 renomeia ao definir o unicode (arrowright -> rightArrow); procura pelo unicode
+        g = font.glyphs[UNICODES[name]]
     if not g:
         g = GSGlyph(name)
         g.unicode = UNICODES.get(name)
