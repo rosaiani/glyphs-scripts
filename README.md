@@ -35,6 +35,8 @@ Scripts/
         └── Font Info Launch.py
 ```
 
+To install or update from a clone of the repository in one step, run `./install.sh` from the repository folder. It backs up the existing `Plau` folder (to `Glyphs 4/Scripts-backups/`), copies the scripts without the `(autosave)` files, and keeps anything that only exists in the destination. Then reload scripts in Glyphs.
+
 The usual scripts location is `~/Library/Application Support/Glyphs 4/Scripts/`. Using **Open Scripts Folder** ensures you install into the folder your app uses.
 
 After installation, the tools appear under **Script → Plau**. Menu labels may differ from filenames.
