@@ -1,7 +1,7 @@
 #MenuTitle: Build En and Em Dashes from Hyphen
 # -*- coding: utf-8 -*-
 # Shortcut: cmd+opt+shift+d
-# Description: Cria endash (–) e emdash (—) a partir do hyphen, usando o hyphen como componente. endash = 140% da largura do hyphen; emdash = 180%. LSB/RSB paramétricos: =hyphen.
+# Description: Builds endash (–) and emdash (—) from the hyphen, using the hyphen as a component. endash = 140% of the hyphen width; emdash = 180%. Parametric LSB/RSB: =hyphen.
 
 from GlyphsApp import Glyphs, GSComponent, GSGlyph, Message
 

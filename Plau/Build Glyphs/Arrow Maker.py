@@ -1,10 +1,10 @@
 #MenuTitle: Build Arrows from Hyphen
 # -*- coding: utf-8 -*-
 # Shortcut: cmd+opt+shift+a
-# Description: Cria setas (← → ↑ ↓ ↔ ↕) em TODAS as masters com strokes nativos do Glyphs 4: uma haste e uma ponta em V
-# (paths abertos com strokeWidth/strokeHeight), sem outlines. A espessura vem dos stems da master (Font Info → Stems);
-# se não existirem, usa a espessura do hyphen. Largura horizontal = emdash (se existir) ou hyphen × fator.
-# Se o glifo já existir, pode ignorar ou substituir (com backup das layers).
+# Description: Builds arrows (← → ↑ ↓ ↔ ↕) in ALL masters with native Glyphs 4 strokes: a shaft and a V-shaped head
+# (open paths with strokeWidth/strokeHeight), no outlines. Stroke weight comes from the master's stems (Font Info → Stems);
+# if none exist, the hyphen's thickness is used. Horizontal width = emdash (if present) or hyphen × factor.
+# If a glyph already exists, you can skip it or replace it (with a backup of its layers).
 
 from GlyphsApp import Glyphs, GSGlyph, GSPath, GSNode, GSLayer, Message, LINE
 import vanilla

@@ -3,13 +3,13 @@
 """
 Glyphs 4
 
-Cria/atualiza a partir do componente "period":
-- periodcentered (U+00B7): y = (xHeight/2) + 5; LSB/RSB = "period"; escala 1.0
-- bullet        (U+2022): y = (xHeight/2) + 5; LSB/RSB = "period*1.25"; escala 1.4
+Creates/updates from the "period" component:
+- periodcentered (U+00B7): y = (xHeight/2) + 5; LSB/RSB = "period"; scale 1.0
+- bullet        (U+2022): y = (xHeight/2) + 5; LSB/RSB = "period*1.25"; scale 1.4
 
-Obs. importante:
-- NÃO inclua o sinal '=' nas metric keys salvas. O Glyphs exibe o '=' na UI automaticamente.
-- Keys são aplicadas só no LAYER (glyph-level é limpo) para não virar “==”.
+Important:
+- Do NOT include the '=' sign in the stored metric keys. Glyphs shows the '=' in the UI automatically.
+- Keys are applied on the LAYER only (the glyph-level key is cleared) so they don't become "==".
 """
 
 from GlyphsApp import Glyphs, GSGlyph, GSLayer, GSComponent

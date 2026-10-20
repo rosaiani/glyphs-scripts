@@ -6,7 +6,7 @@ Python tools for everyday type design work at Plau: building glyphs, positioning
 
 - macOS and Glyphs 4.
 - Python scripting support in Glyphs.
-- The `vanilla` UI library for Arrow Maker, Center Components, and the metadata preset. If an import fails, check the Python modules available through Glyphs’ Plugin Manager.
+- The `vanilla` UI library for Arrow Maker, Center Components, and Fill Font Metadata. If an import fails, check the Python modules available through Glyphs’ Plugin Manager.
 
 Run these scripts **inside Glyphs**, not from Terminal. Basic Math uses the Glyphs 4 API; compatibility with Glyphs 3 is not guaranteed. Menu visibility and Python syntax have been checked, but the collection has not been fully tested across fonts and Glyphs builds. Some dialogs and messages are in Portuguese.
 
@@ -55,7 +55,7 @@ Open a font, save a copy, and choose a tool from the menu. Glyph builders genera
 | **Center Components in Reference Height** | Selected glyphs containing components | Opens controls for vertical positioning relative to cap height, x-height, or layer height, on current or all layers. Disables automatic alignment on moved components. |
 | **Make Segments Parallel** | Two segments in the current layer (select the 2 on-curve nodes of each, 4 in total) | Rotates both segments around their own midpoints to their average angle, so they become parallel without changing length. Handles attached to the moved nodes follow. One undo step. Shortcut: `cmd+opt+shift+p`. |
 | **Make Segments Symmetric** | Four segments in the current layer: two left and two right of the glyph center (for example the four diagonal edges of a V) | Pairs each left segment with its right counterpart and makes them exact mirror images across the vertical axis at width ÷ 2, averaging both sides. Handles on moved nodes follow. If extra short segments are selected too, the four longest are used. One undo step. |
-| **Preset Plau - Fill Metadata** | An open font and a client name | Sets the family name to the client name, fills Plau credits, URLs, vendor ID and copyright, and resets the version to **0.000**. |
+| **Fill Font Metadata** | An open font, a client name, and your foundry name, URL and vendor ID | Sets the family name to the client name, fills designer and manufacturer (foundry name and URL), vendor ID and copyright, and resets the version to **0.000**. Optional checkbox **Add clean version string** sets the version string to just “Version X.XXX” and adds `--no-info` to existing ttfautohint options. Foundry fields and the checkbox are remembered between runs. |
 
 ### Basic Math behavior
 
@@ -66,7 +66,7 @@ Open a font, save a copy, and choose a tool from the menu. Glyph builders genera
 
 ### Existing glyphs
 
-Dashes and Periodcentered/Bullet replace their target master-layer content. The metadata preset overwrites the fields listed above. In Arrow Maker, the option labeled **“Ask (backup then replace)” currently does not show a confirmation dialog**; it backs up and replaces. Use a saved font copy when trying these tools.
+Dashes and Periodcentered/Bullet replace their target master-layer content. Fill Font Metadata overwrites the fields listed above. In Arrow Maker, the option labeled **“Ask (backup then replace)” currently does not show a confirmation dialog**; it backs up and replaces. Use a saved font copy when trying these tools.
 
 ## Updating and troubleshooting
 
