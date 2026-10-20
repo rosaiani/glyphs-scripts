@@ -1,7 +1,7 @@
 #MenuTitle: Make Segments Parallel
 # -*- coding: utf-8 -*-
 # Shortcut: cmd+opt+shift+p
-# Description: Select the two nodes of each of two segments (4 on-curve nodes) and run. Both segments are rotated around their own midpoints to the average angle, so they become parallel without changing their lengths.
+# Description: Select the two nodes of each of two segments (4 on-curve nodes) and run. If other neighboring selected nodes form extra short segments, the two longest are used. Both segments are rotated around their own midpoints to the average angle, so they become parallel without changing their lengths.
 
 import math
 from GlyphsApp import Glyphs, Message, GSOFFCURVE
@@ -34,6 +34,11 @@ def selected_segments(layer):
     return segments
 
 
+def segment_length(segment):
+    _, a, b = segment
+    return math.hypot(b.position.x - a.position.x, b.position.y - a.position.y)
+
+
 def move_with_handles(path, node, new_pos):
     dx = new_pos[0] - node.position.x
     dy = new_pos[1] - node.position.y
@@ -52,11 +57,14 @@ def make_parallel():
     layer = font.selectedLayers[0]
 
     segments = selected_segments(layer)
-    if len(segments) != 2:
+    if len(segments) < 2:
         raise RuntimeError(
-            "Selecione exatamente dois segmentos (2 nós em cada, 4 no total). "
+            "Selecione dois segmentos (2 nós em cada, 4 no total). "
             "Encontrados: {0}.".format(len(segments))
         )
+    # Selected nodes that are neighbors also form short connecting segments
+    # (e.g. the base of a stem); keep the two longest.
+    segments = sorted(segments, key=segment_length, reverse=True)[:2]
 
     # Direction of each segment; flip the second if needed so both point the same way.
     vecs = []
