@@ -1,6 +1,6 @@
 #MenuTitle: Fill Font Metadata
 # -*- coding: utf-8 -*-
-# Description: Fills the Font Info metadata from a client name and your foundry details: family name, vendor ID, copyright, designer/manufacturer and their URLs. Resets the version to 0.000 and can add a clean version string ("Version X.XXX" only). Foundry fields are remembered between runs.
+# Description: Fills the Font Info metadata from a client name, a font name (defaults to the client name) and your foundry details: family name, vendor ID, copyright, designer/manufacturer and their URLs. Resets the version to 0.000 and can add a clean version string ("Version X.XXX" only). Foundry fields are remembered between runs.
 
 from GlyphsApp import Glyphs, Message
 from string import Template
@@ -40,11 +40,15 @@ def set_clean_version_string(font):
 
 class FillMetadataWindow(object):
     def __init__(self):
-        self.w = vanilla.FloatingWindow((340, 262), TITLE)
+        self.w = vanilla.FloatingWindow((340, 314), TITLE)
 
         y = 14
-        self.w.clientLabel = vanilla.TextBox((15, y, -15, 17), "Client name (family name):")
+        self.w.clientLabel = vanilla.TextBox((15, y, -15, 17), "Client name:")
         self.w.client = vanilla.EditText((15, y + 20, -15, 22), "")
+
+        y += 52
+        self.w.fontLabel = vanilla.TextBox((15, y, -15, 17), "Font name (family name):")
+        self.w.fontName = vanilla.EditText((15, y + 20, -15, 22), "", placeholder="Same as client name")
 
         y += 52
         self.w.foundryLabel = vanilla.TextBox((15, y, -15, 17), "Foundry name:")
@@ -70,6 +74,7 @@ class FillMetadataWindow(object):
 
     def apply_callback(self, sender):
         client = self.w.client.get().strip()
+        family = self.w.fontName.get().strip() or client
         foundry = self.w.foundry.get().strip()
         url = self.w.url.get().strip()
         vendor = self.w.vendor.get().strip()
@@ -96,7 +101,7 @@ class FillMetadataWindow(object):
         remember("vendor", vendor)
         remember("cleanVersion", clean_version)
 
-        font.familyName = client
+        font.familyName = family
         font.customParameters["vendorID"] = vendor
         font.copyright = COPYRIGHT_TPL.substitute(client=client, foundry=foundry, year=year)
         font.designer = foundry
@@ -112,6 +117,7 @@ class FillMetadataWindow(object):
             set_clean_version_string(font)
 
         print("✅ {0}:".format(TITLE))
+        print("  Client: {0}".format(client))
         print("  Family: {0}".format(font.familyName))
         print("  vendorID: {0}".format(font.customParameters["vendorID"]))
         print("  copyright: {0}".format(font.copyright))
