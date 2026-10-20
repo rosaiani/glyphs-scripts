@@ -29,6 +29,7 @@ Scripts/
     │   ├── Build Period Glyphs.py
     │   └── Dashes From Hyphen.py
     ├── Components/
+    │   ├── Make Segments Parallel.py
     │   └── Vertically Center Component.py
     └── Font Info/
         └── Font Info Launch.py
@@ -49,6 +50,7 @@ Open a font, save a copy, and choose a tool from the menu. Glyph builders genera
 | **Build Periodcentered and Bullet** | `period` | Rebuilds `periodcentered` and `bullet` from period components. Bullet defaults to 1.4× scale; both use period-based sidebearing keys. |
 | **Build Arrows from Hyphen** | `hyphen`; optionally `emdash`; stems in Font Info | Builds `arrowleft`, `arrowright`, `arrowup`, `arrowdown`, `arrowleftright`, and `arrowupdown` in every master as native Glyphs 4 strokes: an open shaft path plus a V-shaped head, no outlines. Stroke weight comes from each master’s stems (horizontal stem for horizontal strokes, vertical stem for vertical ones), falling back to the hyphen’s thickness. Horizontal arrows span the emdash width (or hyphen × factor) at hyphen height; vertical arrows run from baseline to cap height. Sidebearings reference `hyphen`. Glyphs 4 renames these glyphs on creation (for example `arrowright` becomes `rightArrow`); existing ones are found by Unicode. |
 | **Center Components in Reference Height** | Selected glyphs containing components | Opens controls for vertical positioning relative to cap height, x-height, or layer height, on current or all layers. Disables automatic alignment on moved components. |
+| **Make Segments Parallel** | Two segments in the current layer (select the 2 on-curve nodes of each, 4 in total) | Rotates both segments around their own midpoints to their average angle, so they become parallel without changing length. Handles attached to the moved nodes follow. One undo step. Shortcut: `cmd+opt+shift+p`. |
 | **Preset Plau - Fill Metadata** | An open font and a client name | Sets the family name to the client name, fills Plau credits, URLs, vendor ID and copyright, and resets the version to **0.000**. |
 
 ### Basic Math behavior
