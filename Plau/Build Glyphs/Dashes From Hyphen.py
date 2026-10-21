@@ -3,6 +3,11 @@
 # Shortcut: cmd+opt+shift+d
 # Description: Builds endash (–) and emdash (—) from the hyphen, using the hyphen as a component. endash = 140% of the hyphen width; emdash = 180%. Parametric LSB/RSB: =hyphen.
 
+__doc__ = """
+Builds endash (140% of the hyphen width) and emdash (180%) in every master from a horizontally scaled hyphen component, with sidebearings linked to hyphen.
+Needs hyphen. Existing endash and emdash master layers are replaced.
+"""
+
 from GlyphsApp import Glyphs, GSComponent, GSGlyph, Message
 
 EN_FACTOR = 1.40  # 140%

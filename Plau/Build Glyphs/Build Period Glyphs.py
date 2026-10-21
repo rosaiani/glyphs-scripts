@@ -1,15 +1,9 @@
 #MenuTitle: Build Periodcentered and Bullet
 # -*- coding: utf-8 -*-
-"""
-Glyphs 4
-
-Creates/updates from the "period" component:
-- periodcentered (U+00B7): y = (xHeight/2) + 5; LSB/RSB = "period"; scale 1.0
-- bullet        (U+2022): y = (xHeight/2) + 5; LSB/RSB = "period*1.25"; scale 1.4
-
-Important:
-- Do NOT include the '=' sign in the stored metric keys. Glyphs shows the '=' in the UI automatically.
-- Keys are applied on the LAYER only (the glyph-level key is cleared) so they don't become "==".
+__doc__ = """
+Builds periodcentered and bullet from period components in every master, placed at half the x-height.
+Sidebearings reference period (bullet: period*1.25, component scale 1.4). Needs period.
+Existing periodcentered and bullet master layers are replaced.
 """
 
 from GlyphsApp import Glyphs, GSGlyph, GSLayer, GSComponent

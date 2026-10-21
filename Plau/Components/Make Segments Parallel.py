@@ -3,6 +3,12 @@
 # Shortcut: cmd+opt+shift+p
 # Description: Select the two nodes of each of two segments (4 on-curve nodes) and run. If other neighboring selected nodes form extra short segments, the two longest are used. Both segments are rotated around their own midpoints to the average angle, so they become parallel without changing their lengths.
 
+__doc__ = """
+Select the two nodes of each of two segments (4 on-curve nodes) and run.
+Both segments are rotated around their own midpoints to the average angle, so they become parallel without changing their lengths.
+If neighboring selected nodes form extra short segments, the two longest are used.
+"""
+
 import math
 from GlyphsApp import Glyphs, Message, GSOFFCURVE
 

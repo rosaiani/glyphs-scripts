@@ -1,7 +1,7 @@
 #MenuTitle: Particles to Static Instances
 # -*- coding: utf-8 -*-
 __doc__ = """
-Turns the name particles of a Particles export into static instances, one per
+Turns the name particles of the variable export (Glyphs 4) into static instances, one per
 weight x slant, with Windows (RIBBI) style linking:
 
   Upright family:    Regular + Bold, with Slant -> Italic and Bold Slant -> Bold Italic
@@ -12,16 +12,15 @@ weight x slant, with Windows (RIBBI) style linking:
 Run it with the font open. Nothing is deleted unless you change the settings.
 """
 
-from GlyphsApp import Glyphs, GSInstance
+from GlyphsApp import Glyphs, GSInstance, INSTANCETYPESINGLE, INSTANCETYPEVARIABLE
 
 # ---------- settings ----------
 DRY_RUN = False             # True = only print what would be created
 SKIP_EXISTING = True        # skip a combination if a static instance already sits at those coordinates
-REMOVE_PARTICLES = False    # True = delete the particles export afterwards (avoids duplicate named instances in the VF)
+REMOVE_PARTICLES = False    # True = clear the name particles of the variable export afterwards (avoids duplicate named instances in the VF)
 MAX_NAME = 32               # warn when "Family Style" is longer than this (Word on Windows)
 # ------------------------------
 
-PARTICLES_KEY = "com.glyphsapp.NameParticles"
 WEIGHT_TAGS = ("wght",)
 SLOPE_TAGS = ("slnt", "ital")
 
@@ -65,11 +64,21 @@ def plan(weights, slopes):
 
 
 def read_particles(font):
-	for inst in font.instances:
-		ud = inst.userData[PARTICLES_KEY] if inst.userData else None
-		if ud:
-			return inst, ud
-	return None, None
+	"""The instance holding the name particles (Glyphs 4 keeps them per axis on the variable export)."""
+	holders = [i for i in font.instances if any(len(v) for v in i.nameParticles.values())]
+	holders.sort(key=lambda i: i.type != INSTANCETYPEVARIABLE)
+	if not holders:
+		return None, None
+	return holders[0], holders[0].nameParticles
+
+
+def particle_list(particles, axis):
+	"""Active particles of an axis as plain dicts, sorted by their design-space position."""
+	out = []
+	for p in particles.get(axis.axisId, []):
+		if p.active:
+			out.append(dict(name=p.name, internal=p.internal, external=p.external))
+	return sorted(out, key=lambda p: p["internal"])
 
 
 def axis_index(font, tags):
@@ -95,17 +104,11 @@ def slope_role(font, slope_index, value):
 
 
 def instance_axes(inst):
-	try:
-		return list(inst.axes)
-	except AttributeError:
-		return list(inst.axesValues)
+	return list(inst.internalAxesValues)
 
 
 def set_instance_axes(inst, values):
-	try:
-		inst.axes = values
-	except AttributeError:
-		inst.axesValues = values
+	inst.internalAxesValues = values
 
 
 def run():
@@ -125,11 +128,14 @@ def run():
 		print("No weight axis (wght) found.")
 		return
 
-	def as_list(key):
-		return [dict(p) for p in particles[key]] if key in particles else []
-
-	weights = sorted(as_list(font.axes[wi].axisTag), key=lambda p: p["internal"])
-	slopes = as_list(font.axes[si].axisTag) if si is not None else [dict(name="Regular", internal=0)]
+	weights = particle_list(particles, font.axes[wi])
+	if not weights:
+		print("The weight axis has no active name particles.")
+		return
+	slopes = particle_list(particles, font.axes[si]) if si is not None else []
+	if not slopes:
+		si = None
+		slopes = [dict(name="Regular", internal=0, external=None)]
 	for s in slopes:
 		s["role"] = slope_role(font, si, s["internal"]) if si is not None else "upright"
 	order = {"upright": 0, "italic": 1, "backslant": 2}
@@ -138,7 +144,7 @@ def run():
 	family = font.familyName
 	existing = []
 	for inst in font.instances:
-		if inst.type == 0 and not (inst.userData and inst.userData[PARTICLES_KEY]):
+		if inst.type == INSTANCETYPESINGLE:
 			existing.append(tuple(round(v, 2) for v in instance_axes(inst)))
 
 	created = skipped = 0
@@ -169,8 +175,8 @@ def run():
 		print("%s%-22s %-6s %s%s" % (tag, p["name"], p["weightClass"], link, warn))
 
 	if REMOVE_PARTICLES and not DRY_RUN and pinst is not None:
-		font.instances.remove(pinst)
-		print("Removed the particles export.")
+		pinst.nameParticles = {}
+		print("Cleared the name particles of '%s'." % pinst.name)
 
 	print("\n%s %d instances, skipped %d that already existed (=)." % (
 		"Would create" if DRY_RUN else "Created", created if not DRY_RUN else len(weights) * len(slopes) - skipped, skipped))

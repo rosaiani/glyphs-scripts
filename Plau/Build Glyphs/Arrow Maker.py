@@ -6,6 +6,12 @@
 # if none exist, the hyphen's thickness is used. Horizontal width = emdash (if present) or hyphen × factor.
 # If a glyph already exists, you can skip it or replace it (with a backup of its layers).
 
+__doc__ = """
+Builds arrows (← → ↑ ↓ ↔ ↕) in every master from native Glyphs 4 strokes: a shaft plus a V-shaped head, no outlines.
+Stroke weight follows each master's stems (Font Info → Stems), falling back to the hyphen's thickness.
+Opens a window to choose the arrows, proportions and what to do with existing glyphs. Needs hyphen; uses the emdash width if present.
+"""
+
 from GlyphsApp import Glyphs, GSGlyph, GSPath, GSNode, GSLayer, Message, LINE
 import vanilla
 from datetime import datetime

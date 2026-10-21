@@ -3,6 +3,11 @@
 # Shortcut: cmd+opt+shift+c
 # Description: Centers components along Y based on Cap Height, x-Height, or Total Layer Height. Works on current or all layers of selected glyphs.
 
+__doc__ = """
+Centers the components of the selected glyphs vertically on the cap height, x-height or total layer height, on the current layer or on all layers.
+Opens a window. Turns off automatic alignment on the components it moves.
+"""
+
 import vanilla
 from GlyphsApp import Glyphs, Message
 

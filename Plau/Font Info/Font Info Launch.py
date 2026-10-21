@@ -2,6 +2,11 @@
 # -*- coding: utf-8 -*-
 # Description: Fills the Font Info metadata from a client name, a font name (defaults to the client name) and your foundry details: family name, vendor ID, copyright, designer/manufacturer and their URLs. Resets the version to 0.000 and can add a clean version string ("Version X.XXX" only). Foundry fields are remembered between runs.
 
+__doc__ = """
+Fills the Font Info metadata from a client name, a font name (defaults to the client name) and your foundry details: family name, vendor ID, copyright, designer/manufacturer and their URLs.
+Resets the version to 0.000 and can add a clean version string. Foundry fields are remembered between runs. Overwrites the existing values.
+"""
+
 from GlyphsApp import Glyphs, Message
 from string import Template
 from datetime import datetime

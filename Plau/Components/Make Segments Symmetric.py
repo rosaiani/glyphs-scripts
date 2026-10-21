@@ -2,6 +2,11 @@
 # -*- coding: utf-8 -*-
 # Description: Select 4 segments (2 on the left, 2 on the right of the glyph's center, e.g. the four diagonal edges of a V) and run. Each left segment is mirrored with its right counterpart across the vertical axis at width/2; both end up as exact mirror images (averaged), so left and right bars sit at the same distance from the axis and the same height.
 
+__doc__ = """
+Select 4 segments (2 left and 2 right of the glyph's center, e.g. the four diagonal edges of a V) and run.
+Each left segment is mirrored with its right counterpart across the vertical axis at width/2 and both end up as exact mirror images (averaged).
+"""
+
 import math
 from GlyphsApp import Glyphs, Message, GSOFFCURVE
 
