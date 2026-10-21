@@ -12,11 +12,9 @@ Run these scripts **inside Glyphs**, not from Terminal. Basic Math uses the Glyp
 
 ## Installation
 
-1. Download or clone this repository.
-2. In Glyphs 4, choose **Script → Open Scripts Folder**.
-3. Copy the repository’s **`Plau` folder** into that folder. Keep its subfolders intact. Do not copy the entire repository into another folder named Plau.
-4. Omit files ending in **`(autosave).py`**: these are saved copies, not additional tools.
-5. Hold **Option** while opening the Script menu and choose **Reload Scripts**. If necessary, restart Glyphs.
+Install the scripts from Glyphs’ **Plugin Manager** (**Window → Plugin Manager → Scripts**). Updates also come through the Plugin Manager; reload the scripts afterwards (hold **Option** while opening the Script menu and choose **Reload Scripts**, or restart Glyphs).
+
+To install by hand instead, download or clone this repository, choose **Script → Open Scripts Folder** in Glyphs 4, and copy the repository’s **`Plau` folder** into it with its subfolders intact. Then reload the scripts.
 
 The installed structure should look like this:
 
@@ -35,10 +33,6 @@ Scripts/
     └── Font Info/
         └── Font Info Launch.py
 ```
-
-To install or update from a clone of the repository in one step, run `./install.sh` from the repository folder. It backs up the existing `Plau` folder (to `Glyphs 4/Scripts-backups/`), copies the scripts without the `(autosave)` files, and keeps anything that only exists in the destination. Then reload scripts in Glyphs.
-
-The usual scripts location is `~/Library/Application Support/Glyphs 4/Scripts/`. Using **Open Scripts Folder** ensures you install into the folder your app uses.
 
 After installation, the tools appear under **Script → Plau**. Menu labels may differ from filenames.
 
@@ -70,7 +64,7 @@ Dashes and Periodcentered/Bullet replace their target master-layer content. Fill
 
 ## Updating and troubleshooting
 
-To update, replace the installed scripts with their newer versions and reload the Script menu. Preserve any local customizations first.
+To update, use the Plugin Manager and reload the Script menu. Preserve any local customizations first. If a manual copy of the `Plau` folder is still in the Scripts folder alongside the Plugin Manager install, remove one of them so scripts do not appear twice.
 
 - **A script is missing:** check its location, `.py` extension, and first line. Active scripts use `#MenuTitle: …`. Reload the menu after moving or editing files.
 - **The menu shows Plau → Plau:** move the inner folder’s contents one level up to match the structure above.
