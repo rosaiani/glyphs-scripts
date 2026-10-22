@@ -30,6 +30,7 @@ Scripts/
     │   ├── Build Period Glyphs.py
     │   └── Dashes From Hyphen.py
     ├── Components/
+    │   ├── Flip Components.py
     │   ├── Make Segments Parallel.py
     │   ├── Make Segments Symmetric.py
     │   └── Vertically Center Component.py
@@ -57,6 +58,7 @@ Scripts/
 | **Center Components in Reference Height** | 所选的包含组件的字形 | 打开控件，可相对于大写字母高度、x 高度或图层高度进行垂直定位，作用于当前图层或所有图层。会关闭被移动组件的自动对齐。 |
 | **Set Diacritics Sidebearings** | 所有类别为 Mark 的字形 | 组合标记（例如 `acutecomb`）的 LSB 设为 `=40`，RSB 设为 `=|`（与 LSB 相同），并同步所有图层。旧式的间隔标记（例如 `acute`）本身不设键：每个都会变成其 `…comb` 字形的自动对齐组件，并沿用其度量。已经包含该组件的旧式字形只会打开自动对齐；空的会被构建；含有其他图形的则保持不变，并在 Macro Panel 中列出（设置 `REPLACE_DRAWN = True` 可将其重建）。这些字形上图层级别的 LSB/RSB 键会被清除。 |
 | **Create Centerline** | 两个线段（每个线段选中 2 个曲线上的节点，共 4 个，可以在同一轮廓或不同轮廓中），或两个完整的路径 | 在两条线的正中间添加一条新的开放路径，例如 8 的中间腰部。直线和曲线可以混合使用，方向会自动匹配。选择两个完整路径时，它们必须具有相同的节点结构；起点和方向会自动匹配（也适用于方向相反的闭合轮廓）。原始路径不会被修改，坐标会四舍五入为整数。灵感来自 Harbor Type 的 Create Centerline，并针对 Glyphs 4 重写。 |
+| **Flip Components** | 选中的组件，或包含组件的选中字形 | 打开一个带有 **Flip Horizontally** 和 **Flip Vertically** 按钮的窗口。在所有主板中同时翻转选中的组件（未选中任何组件时，翻转所选字形的全部组件），每个组件都围绕自身边界的中心翻转，因此位置不变，只改变朝向。主板之间按组件在字形中的顺序进行匹配。会关闭被翻转组件的自动对齐；运行两次即可还原。可选复选框 **Include special layers** 还会翻转 brace、bracket 和备份图层。 |
 | **Make Segments Parallel** | 当前图层中的两个线段（每个线段选中 2 个曲线上的节点，共 4 个） | 让两个线段各自绕自己的中点旋转到平均角度，使它们在长度不变的情况下变得平行。与被移动节点相连的手柄会跟随移动。只需一次撤销。快捷键：`cmd+opt+shift+p`。 |
 | **Make Segments Symmetric** | 当前图层中的四个线段：字形中心左侧两个、右侧两个（例如 V 的四条斜边） | 将左侧每个线段与右侧对应的线段配对，并取两侧的平均值，使它们关于宽度 ÷ 2 处的垂直轴成为精确的镜像。被移动节点上的手柄会跟随移动。如果还选中了多余的短线段，则使用最长的四个。只需一次撤销。 |
 | **Fill Font Metadata** | 一个已打开的字体、客户名称、可选的字体名称，以及你的字体厂牌（foundry）名称、URL 和 vendor ID | 将字体家族名设为字体名称（留空时使用客户名称；版权信息中使用客户名称），填写设计师和制造商（厂牌名称和 URL）、vendor ID 和版权信息，并将版本重置为 **0.000**。可选复选框 **Add clean version string** 会把版本字符串设为仅“Version X.XXX”，并在已有的 ttfautohint 选项中加入 `--no-info`。厂牌字段和复选框的状态会在多次运行之间保留。 |
