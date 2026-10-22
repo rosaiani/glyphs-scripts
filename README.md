@@ -1,5 +1,7 @@
 # Plau Glyphs Scripts
 
+**English** · [Português](README.pt.md) · [Español](README.es.md) · [日本語](README.ja.md) · [简体中文](README.zh.md)
+
 Python tools for everyday type design work at Plau: building glyphs, positioning components, and setting up font metadata. Created by Rodrigo Saiani with assistance from ChatGPT.
 
 ## Requirements
