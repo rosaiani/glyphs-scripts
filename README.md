@@ -30,8 +30,10 @@ Scripts/
     │   ├── Make Segments Parallel.py
     │   ├── Make Segments Symmetric.py
     │   └── Vertically Center Component.py
-    └── Font Info/
-        └── Font Info Launch.py
+    ├── Font Info/
+    │   └── Font Info Launch.py
+    └── Spacing/
+        └── Set Diacritics Sidebearings.py
 ```
 
 After installation, the tools appear under **Script → Plau**. Menu labels may differ from filenames.
@@ -47,6 +49,7 @@ Open a font, save a copy, and choose a tool from the menu. Glyph builders genera
 | **Build Periodcentered and Bullet** | `period` | Rebuilds `periodcentered` and `bullet` from period components. Bullet defaults to 1.4× scale; both use period-based sidebearing keys. |
 | **Build Arrows from Hyphen** | `hyphen`; optionally `emdash`; stems in Font Info | Builds `arrowleft`, `arrowright`, `arrowup`, `arrowdown`, `arrowleftright`, and `arrowupdown` in every master as native Glyphs 4 strokes: an open shaft path plus a V-shaped head, no outlines. Stroke weight comes from each master’s stems (horizontal stem for horizontal strokes, vertical stem for vertical ones), falling back to the hyphen’s thickness. Horizontal arrows span the emdash width (or hyphen × factor) at hyphen height; vertical arrows run from baseline to cap height. Sidebearings reference `hyphen`. Glyphs 4 renames these glyphs on creation (for example `arrowright` becomes `rightArrow`); existing ones are found by Unicode. |
 | **Center Components in Reference Height** | Selected glyphs containing components | Opens controls for vertical positioning relative to cap height, x-height, or layer height, on current or all layers. Disables automatic alignment on moved components. |
+| **Set Diacritics Sidebearings** | Every glyph with category Mark | Sets the glyph keys to LSB `=40` and RSB `=|` (equal to the LSB) on all diacritics, spacing and combining, and syncs every layer. Layer-level LSB/RSB keys on those glyphs are cleared. Combining marks get a width from their sidebearings. |
 | **Make Segments Parallel** | Two segments in the current layer (select the 2 on-curve nodes of each, 4 in total) | Rotates both segments around their own midpoints to their average angle, so they become parallel without changing length. Handles attached to the moved nodes follow. One undo step. Shortcut: `cmd+opt+shift+p`. |
 | **Make Segments Symmetric** | Four segments in the current layer: two left and two right of the glyph center (for example the four diagonal edges of a V) | Pairs each left segment with its right counterpart and makes them exact mirror images across the vertical axis at width ÷ 2, averaging both sides. Handles on moved nodes follow. If extra short segments are selected too, the four longest are used. One undo step. |
 | **Fill Font Metadata** | An open font, a client name, an optional font name, and your foundry name, URL and vendor ID | Sets the family name to the font name (defaults to the client name when left empty; the client name is used in the copyright), fills designer and manufacturer (foundry name and URL), vendor ID and copyright, and resets the version to **0.000**. Optional checkbox **Add clean version string** sets the version string to just “Version X.XXX” and adds `--no-info` to existing ttfautohint options. Foundry fields and the checkbox are remembered between runs. |
