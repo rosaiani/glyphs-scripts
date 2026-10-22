@@ -26,6 +26,7 @@ Scripts/
     ├── Build Glyphs/
     │   ├── Arrow Maker.py
     │   ├── Build Basic Math G4.py
+    │   ├── Build Letters from Diacritic.py
     │   ├── Build Period Glyphs.py
     │   └── Dashes From Hyphen.py
     ├── Components/
@@ -50,6 +51,7 @@ Scripts/
 | **Build En and Em Dashes from Hyphen** | `hyphen` | 用水平缩放的 hyphen 组件重新构建 `endash` 和 `emdash`。默认宽度为 hyphen 推进宽度的 140% 和 180%，边距键（sidebearing key）引用 hyphen。 |
 | **Build Periodcentered and Bullet** | `period` | 用 period 组件重新构建 `periodcentered` 和 `bullet`。bullet 默认缩放为 1.4 倍；两者都使用基于 period 的边距键。 |
 | **Build Arrows from Hyphen** | `hyphen`；可选 `emdash`；Font Info 中的笔画粗细（stems） | 在每个主板中，以 Glyphs 4 原生描边（stroke）的方式构建 `arrowleft`、`arrowright`、`arrowup`、`arrowdown`、`arrowleftright` 和 `arrowupdown`：一条开放路径作为箭杆，加上 V 形箭头，不使用轮廓。描边粗细取自每个主板的笔画粗细（水平线条用水平 stem，垂直线条用垂直 stem），没有时退回到 hyphen 的粗细。水平箭头在 hyphen 的高度上，宽度取 emdash 的宽度（或 hyphen × 系数）；垂直箭头从基线延伸到大写字母高度。边距引用 `hyphen`。Glyphs 4 在创建这些字形时会重命名（例如 `arrowright` 会变成 `rightArrow`）；已有的字形通过 Unicode 查找。 |
+| **Build Letters from Diacritic** | 选中的一个或多个变音符号（组合标记，例如 `acutecomb`，或旧式标记，例如 `acute`），以及字体中的基础字母 | 打开一个窗口，用于选择 Add Glyphs 中的拉丁语言字符集（Basic、Western European、Central European、South Eastern European、South American 等），并把这些字符集中所有使用该变音符号的字母添加为“基础字母 + 组合标记”的复合字形，在所有主板中使用自动对齐。缺少基础字形的字母（例如 `iacute` 所需的 `idotless`）会被跳过并列在 Macro Panel 中；已有图形的字母保持不变。还可以选择构建旧式间隔标记（`acutecomb` → `acute`，前提是字形数据中存在），作为 comb 的自动对齐组件。 |
 | **Center Components in Reference Height** | 所选的包含组件的字形 | 打开控件，可相对于大写字母高度、x 高度或图层高度进行垂直定位，作用于当前图层或所有图层。会关闭被移动组件的自动对齐。 |
 | **Set Diacritics Sidebearings** | 所有类别为 Mark 的字形 | 组合标记（例如 `acutecomb`）的 LSB 设为 `=40`，RSB 设为 `=|`（与 LSB 相同），并同步所有图层。旧式的间隔标记（例如 `acute`）本身不设键：每个都会变成其 `…comb` 字形的自动对齐组件，并沿用其度量。已经包含该组件的旧式字形只会打开自动对齐；空的会被构建；含有其他图形的则保持不变，并在 Macro Panel 中列出（设置 `REPLACE_DRAWN = True` 可将其重建）。这些字形上图层级别的 LSB/RSB 键会被清除。 |
 | **Make Segments Parallel** | 当前图层中的两个线段（每个线段选中 2 个曲线上的节点，共 4 个） | 让两个线段各自绕自己的中点旋转到平均角度，使它们在长度不变的情况下变得平行。与被移动节点相连的手柄会跟随移动。只需一次撤销。快捷键：`cmd+opt+shift+p`。 |

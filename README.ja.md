@@ -26,6 +26,7 @@ Scripts/
     ├── Build Glyphs/
     │   ├── Arrow Maker.py
     │   ├── Build Basic Math G4.py
+    │   ├── Build Letters from Diacritic.py
     │   ├── Build Period Glyphs.py
     │   └── Dashes From Hyphen.py
     ├── Components/
@@ -50,6 +51,7 @@ Scripts/
 | **Build En and Em Dashes from Hyphen** | `hyphen` | 水平方向に拡大した hyphen のコンポーネントで `endash` と `emdash` を作り直します。既定の幅は hyphen のアドバンス幅の 140% と 180% で、サイドベアリングのキーは hyphen を参照します。 |
 | **Build Periodcentered and Bullet** | `period` | period のコンポーネントから `periodcentered` と `bullet` を作り直します。bullet の既定の拡大率は 1.4 倍で、どちらも period に基づくサイドベアリングのキーを使います。 |
 | **Build Arrows from Hyphen** | `hyphen`、任意で `emdash`、Font Info のステム | `arrowleft`、`arrowright`、`arrowup`、`arrowdown`、`arrowleftright`、`arrowupdown` を、すべてのマスターで Glyphs 4 のネイティブなストロークとして作成します。軸となる開いたパスと V 字の矢じりで構成され、アウトラインは使いません。線の太さは各マスターのステムから決まり（水平の線は水平ステム、垂直の線は垂直ステム）、ステムがない場合は hyphen の太さを使います。水平の矢印は hyphen の高さで emdash の幅（または hyphen × 係数）に広がり、垂直の矢印はベースラインからキャップハイトまで伸びます。サイドベアリングは `hyphen` を参照します。Glyphs 4 は作成時にこれらのグリフ名を変更します（たとえば `arrowright` は `rightArrow` になります）。既存のグリフは Unicode で見つけます。 |
+| **Build Letters from Diacritic** | 選択した 1 つ以上のダイアクリティカルマーク（結合マーク。例: `acutecomb`、または従来のマーク。例: `acute`）と、フォント内のベース文字 | Add Glyphs のラテン文字の言語セット（Basic、Western European、Central European、South Eastern European、South American など）を選ぶウィンドウを開き、そのダイアクリティカルマークを使うセット内のすべての文字を、すべてのマスターで自動整列のベース + 結合マークのコンポジットとして追加します。ベースグリフがない文字（たとえば `iacute` に対する `idotless`）はスキップされて Macro Panel に一覧表示され、すでにアートワークがある文字はそのまま残ります。オプションで、グリフデータに存在する場合に、従来のスペーシングマーク（`acutecomb` → `acute`）を comb の自動整列コンポーネントとして作成します。 |
 | **Center Components in Reference Height** | コンポーネントを含む選択したグリフ | キャップハイト、x ハイト、またはレイヤーの高さを基準に、現在のレイヤーまたはすべてのレイヤーで垂直方向の位置を調整するコントロールを開きます。移動したコンポーネントの自動整列はオフになります。 |
 | **Set Diacritics Sidebearings** | カテゴリが Mark のすべてのグリフ | 結合マーク（例: `acutecomb`）には LSB `=40` と RSB `=|`（LSB と同じ値）を設定し、すべてのレイヤーを同期します。従来のスペーシングマーク（例: `acute`）には独自のキーを設定せず、それぞれ対応する `…comb` グリフの自動整列コンポーネントにして、そのメトリクスに従わせます。すでにそのコンポーネントを持つ従来のグリフは自動整列をオンにするだけで、空のグリフは新しく作成され、別のアートワークがあるグリフはそのままにして Macro Panel に一覧表示します（`REPLACE_DRAWN = True` にすると作り直します）。これらのグリフでは、レイヤー単位の LSB/RSB キーは削除されます。 |
 | **Make Segments Parallel** | 現在のレイヤーの 2 つのセグメント（それぞれの 2 つのオンカーブノードを選択、合計 4 つ） | 2 つのセグメントをそれぞれの中点を中心に平均の角度へ回転させ、長さを変えずに平行にします。移動したノードにつながるハンドルも一緒に動きます。取り消しは 1 回で戻せます。ショートカット: `cmd+opt+shift+p`。 |
