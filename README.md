@@ -38,6 +38,9 @@ Scripts/
     │   └── Font Info Launch.py
     ├── Paths/
     │   └── Create Centerline.py
+    ├── Post-Production/
+    │   ├── Windows Font Fix.py
+    │   └── windows-font-fix.sh
     └── Spacing/
         └── Set Diacritics Sidebearings.py
 ```
@@ -62,6 +65,7 @@ Open a font, save a copy, and choose a tool from the menu. Glyph builders genera
 | **Make Segments Parallel** | Two segments in the current layer (select the 2 on-curve nodes of each, 4 in total) | Rotates both segments around their own midpoints to their average angle, so they become parallel without changing length. Handles attached to the moved nodes follow. One undo step. Shortcut: `cmd+opt+shift+p`. |
 | **Make Segments Symmetric** | Four segments in the current layer: two left and two right of the glyph center (for example the four diagonal edges of a V) | Pairs each left segment with its right counterpart and makes them exact mirror images across the vertical axis at width ÷ 2, averaging both sides. Handles on moved nodes follow. If extra short segments are selected too, the four longest are used. One undo step. |
 | **Fill Font Metadata** | An open font, a client name, an optional font name, and your foundry name, URL and vendor ID | Sets the family name to the font name (defaults to the client name when left empty; the client name is used in the copyright), fills designer and manufacturer (foundry name and URL), vendor ID and copyright, and resets the version to **0.000**. Optional checkbox **Add clean version string** sets the version string to just “Version X.XXX” and adds `--no-info` to existing ttfautohint options. Foundry fields and the checkbox are remembered between runs. |
+| **Windows Font Fix** | Exported TTF/OTF fonts, chosen in a file dialog (or passed on the command line) | Fixes exported fonts so Microsoft Office (PowerPoint, Word) applies their OpenType substitutions: adds an empty `fvar` table, adds a `latn` script record copied from `DFLT` in GSUB/GPOS, and makes `calt` also run every `rclt` lookup (shared, not copied). Opens a window to choose the fixes and the fonts; copies go into a “Windows Fix” folder next to each font unless you choose to overwrite. Web fonts (`woff`, `woff2`) are never touched and real variable fonts keep their `fvar`. Also runs from the command line and as a Glyphs Post-Export Command (see below). |
 
 ### Basic Math behavior
 
@@ -73,6 +77,16 @@ Open a font, save a copy, and choose a tool from the menu. Glyph builders genera
 ### Existing glyphs
 
 Dashes and Periodcentered/Bullet replace their target master-layer content. Fill Font Metadata overwrites the fields listed above. In Arrow Maker, the option labeled **“Ask (backup then replace)” currently does not show a confirmation dialog**; it backs up and replaces. Use a saved font copy when trying these tools.
+
+### Windows Font Fix as a Post-Export Command
+
+Windows Font Fix can run automatically after every export with Florian Pircher’s [Post-Export Command](https://github.com/florianpircher/Post-Export-Command) plugin (work in progress; it may need to be installed from his repository instead of the Plugin Manager).
+
+1. Copy `windows-font-fix.sh` and `Windows Font Fix.py` from the `Plau/Post-Production` folder next to your `.glyphs` file.
+2. In Font Info, add a custom parameter named `Post-Export Command` to the font (or to the instances you export as TTF/OTF) with the value `./windows-font-fix.sh`.
+3. Export. The plugin runs the command from the folder of the `.glyphs` file and passes the exported font’s path as the first argument. Web fonts (`woff`, `woff2`) are ignored, so web exports stay as they are.
+
+The script needs Python with fontTools (`pip3 install fonttools`); `windows-font-fix.sh` looks for it in the usual places, because Glyphs starts commands without your shell environment. From the Terminal: `python3 "Windows Font Fix.py" --help`.
 
 ## Updating and troubleshooting
 

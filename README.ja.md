@@ -38,6 +38,9 @@ Scripts/
     │   └── Font Info Launch.py
     ├── Paths/
     │   └── Create Centerline.py
+    ├── Post-Production/
+    │   ├── Windows Font Fix.py
+    │   └── windows-font-fix.sh
     └── Spacing/
         └── Set Diacritics Sidebearings.py
 ```
@@ -62,6 +65,7 @@ Scripts/
 | **Make Segments Parallel** | 現在のレイヤーの 2 つのセグメント（それぞれの 2 つのオンカーブノードを選択、合計 4 つ） | 2 つのセグメントをそれぞれの中点を中心に平均の角度へ回転させ、長さを変えずに平行にします。移動したノードにつながるハンドルも一緒に動きます。取り消しは 1 回で戻せます。ショートカット: `cmd+opt+shift+p`。 |
 | **Make Segments Symmetric** | 現在のレイヤーの 4 つのセグメント（グリフの中心の左右に 2 つずつ。たとえば V の 4 本の斜めの辺） | 左のセグメントと右の対応するセグメントを組にして、幅 ÷ 2 の縦軸に対して正確に鏡像になるように、両側の平均をとって整えます。移動したノードのハンドルも一緒に動きます。短いセグメントも余分に選択されている場合は、長い方の 4 つを使います。取り消しは 1 回で戻せます。 |
 | **Fill Font Metadata** | 開いているフォント、クライアント名、任意のフォント名、およびファウンドリーの名前・URL・ベンダー ID | ファミリー名をフォント名に設定し（空の場合はクライアント名を使います。クライアント名はコピーライトに使われます）、デザイナーとメーカー（ファウンドリーの名前と URL）、ベンダー ID、コピーライトを入力して、バージョンを **0.000** にリセットします。任意のチェックボックス **Add clean version string** をオンにすると、バージョン文字列が「Version X.XXX」だけになり、既存の ttfautohint のオプションに `--no-info` が追加されます。ファウンドリーの項目とチェックボックスは次回以降も記憶されます。 |
+| **Windows Font Fix** | 書き出した TTF/OTF フォント（ファイルダイアログで選択、またはコマンドラインで指定） | 書き出したフォントを修正し、Microsoft Office（PowerPoint、Word）が OpenType の置換を適用するようにします。空の `fvar` テーブルの追加、GSUB/GPOS の `DFLT` から複製した `latn` スクリプトレコードの追加、`calt` が `rclt` のすべてのルックアップも実行するようにする設定（コピーではなく共有）を行います。修正内容とフォントを選ぶウィンドウを開き、上書きを選ばない限り、各フォントの隣の「Windows Fix」フォルダにコピーを保存します。Web フォント（`woff`、`woff2`）には一切触れず、本物のバリアブルフォントは `fvar` を保持します。コマンドラインや Glyphs の Post-Export Command としても実行できます（下記参照）。 |
 
 ### Basic Math の動作
 
@@ -73,6 +77,16 @@ Scripts/
 ### 既存のグリフ
 
 Dashes と Periodcentered/Bullet は、対象のマスターレイヤーの内容を置き換えます。Fill Font Metadata は上記の項目を上書きします。Arrow Maker の **「Ask (backup then replace)」オプションは、現在、確認ダイアログを表示しません**。バックアップを作成して置き換えます。これらのツールを試すときは、保存済みのフォントのコピーを使ってください。
+
+### Post-Export Command としての Windows Font Fix
+
+Florian Pircher 氏の [Post-Export Command](https://github.com/florianpircher/Post-Export-Command) プラグインを使うと、書き出しのたびに Windows Font Fix を自動実行できます（開発中のため、Plugin Manager ではなく作者のリポジトリからインストールする必要がある場合があります）。
+
+1. `Plau/Post-Production` フォルダの `windows-font-fix.sh` と `Windows Font Fix.py` を、`.glyphs` ファイルと同じ場所にコピーします。
+2. Font Info で、フォント（または TTF/OTF として書き出すインスタンス）に `Post-Export Command` という名前のカスタムパラメータを追加し、値を `./windows-font-fix.sh` にします。
+3. 書き出します。プラグインは `.glyphs` ファイルのあるフォルダからコマンドを実行し、書き出したフォントのパスを最初の引数として渡します。Web フォント（`woff`、`woff2`）は無視されるため、Web 用の書き出しはそのままです。
+
+スクリプトには fontTools が使える Python が必要です（`pip3 install fonttools`）。Glyphs はシェルの環境なしでコマンドを起動するため、`windows-font-fix.sh` が一般的な場所から Python を探します。ターミナルでは `python3 "Windows Font Fix.py" --help` を実行します。
 
 ## アップデートとトラブルシューティング
 

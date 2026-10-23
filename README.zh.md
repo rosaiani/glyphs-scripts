@@ -38,6 +38,9 @@ Scripts/
     │   └── Font Info Launch.py
     ├── Paths/
     │   └── Create Centerline.py
+    ├── Post-Production/
+    │   ├── Windows Font Fix.py
+    │   └── windows-font-fix.sh
     └── Spacing/
         └── Set Diacritics Sidebearings.py
 ```
@@ -62,6 +65,7 @@ Scripts/
 | **Make Segments Parallel** | 当前图层中的两个线段（每个线段选中 2 个曲线上的节点，共 4 个） | 让两个线段各自绕自己的中点旋转到平均角度，使它们在长度不变的情况下变得平行。与被移动节点相连的手柄会跟随移动。只需一次撤销。快捷键：`cmd+opt+shift+p`。 |
 | **Make Segments Symmetric** | 当前图层中的四个线段：字形中心左侧两个、右侧两个（例如 V 的四条斜边） | 将左侧每个线段与右侧对应的线段配对，并取两侧的平均值，使它们关于宽度 ÷ 2 处的垂直轴成为精确的镜像。被移动节点上的手柄会跟随移动。如果还选中了多余的短线段，则使用最长的四个。只需一次撤销。 |
 | **Fill Font Metadata** | 一个已打开的字体、客户名称、可选的字体名称，以及你的字体厂牌（foundry）名称、URL 和 vendor ID | 将字体家族名设为字体名称（留空时使用客户名称；版权信息中使用客户名称），填写设计师和制造商（厂牌名称和 URL）、vendor ID 和版权信息，并将版本重置为 **0.000**。可选复选框 **Add clean version string** 会把版本字符串设为仅“Version X.XXX”，并在已有的 ttfautohint 选项中加入 `--no-info`。厂牌字段和复选框的状态会在多次运行之间保留。 |
+| **Windows Font Fix** | 导出的 TTF/OTF 字体（在文件对话框中选择，或通过命令行传入） | 修复导出的字体，使 Microsoft Office（PowerPoint、Word）能够应用其 OpenType 替换：添加空的 `fvar` 表，在 GSUB/GPOS 中添加从 `DFLT` 复制的 `latn` 脚本记录，并让 `calt` 同时运行所有 `rclt` 查找（共享，而非复制）。会打开一个窗口来选择要应用的修复和字体；除非选择覆盖，否则副本会保存在每个字体旁边的“Windows Fix”文件夹中。网页字体（`woff`、`woff2`）绝不会被改动，真正的可变字体会保留其 `fvar`。也可以通过命令行运行，或作为 Glyphs 的 Post-Export Command 运行（见下文）。 |
 
 ### Basic Math 的行为
 
@@ -73,6 +77,16 @@ Scripts/
 ### 已有的字形
 
 Dashes 和 Periodcentered/Bullet 会替换目标主板图层的内容。Fill Font Metadata 会覆盖上面列出的字段。在 Arrow Maker 中，标为 **“Ask (backup then replace)” 的选项目前不会显示确认对话框**；它会先备份再替换。试用这些工具时，请使用已保存的字体副本。
+
+### 将 Windows Font Fix 用作 Post-Export Command
+
+借助 Florian Pircher 的 [Post-Export Command](https://github.com/florianpircher/Post-Export-Command) 插件，Windows Font Fix 可以在每次导出后自动运行（该插件仍在开发中，可能需要从作者的仓库安装，而不是通过 Plugin Manager）。
+
+1. 把 `Plau/Post-Production` 文件夹中的 `windows-font-fix.sh` 和 `Windows Font Fix.py` 复制到你的 `.glyphs` 文件旁边。
+2. 在 Font Info 中，为字体（或你导出为 TTF/OTF 的实例）添加一个名为 `Post-Export Command` 的自定义参数，值为 `./windows-font-fix.sh`。
+3. 导出。插件会从 `.glyphs` 文件所在的文件夹运行该命令，并把导出字体的路径作为第一个参数传入。网页字体（`woff`、`woff2`）会被忽略，因此网页导出保持不变。
+
+脚本需要带有 fontTools 的 Python（`pip3 install fonttools`）；由于 Glyphs 启动命令时没有你的 shell 环境，`windows-font-fix.sh` 会在常见位置查找它。在终端中可运行 `python3 "Windows Font Fix.py" --help`。
 
 ## 更新与故障排除
 

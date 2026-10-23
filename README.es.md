@@ -38,6 +38,9 @@ Scripts/
     │   └── Font Info Launch.py
     ├── Paths/
     │   └── Create Centerline.py
+    ├── Post-Production/
+    │   ├── Windows Font Fix.py
+    │   └── windows-font-fix.sh
     └── Spacing/
         └── Set Diacritics Sidebearings.py
 ```
@@ -62,6 +65,7 @@ Abre una fuente, guarda una copia y elige una herramienta en el menú. Los const
 | **Make Segments Parallel** | Dos segmentos en la capa actual (selecciona los 2 nodos on-curve de cada uno, 4 en total) | Gira ambos segmentos alrededor de su propio punto medio hasta el ángulo medio, de modo que quedan paralelos sin cambiar su longitud. Los tiradores unidos a los nodos movidos los acompañan. Un solo paso de deshacer. Atajo: `cmd+opt+shift+p`. |
 | **Make Segments Symmetric** | Cuatro segmentos en la capa actual: dos a la izquierda y dos a la derecha del centro del glifo (por ejemplo, los cuatro bordes diagonales de una V) | Empareja cada segmento de la izquierda con su homólogo de la derecha y los convierte en imágenes especulares exactas respecto al eje vertical en ancho ÷ 2, promediando ambos lados. Los tiradores de los nodos movidos los acompañan. Si también hay segmentos cortos adicionales seleccionados, se usan los cuatro más largos. Un solo paso de deshacer. |
 | **Fill Font Metadata** | Una fuente abierta, el nombre del cliente, un nombre de fuente opcional y el nombre, la URL y el vendor ID de tu foundry | Establece el nombre de la familia como el nombre de la fuente (usa el nombre del cliente si se deja vacío; el nombre del cliente se usa en el copyright), rellena designer y manufacturer (nombre y URL de la foundry), vendor ID y copyright, y restablece la versión a **0.000**. La casilla opcional **Add clean version string** deja la version string solo como “Version X.XXX” y añade `--no-info` a las opciones existentes de ttfautohint. Los campos de la foundry y la casilla se recuerdan entre ejecuciones. |
+| **Windows Font Fix** | Fuentes TTF/OTF exportadas, elegidas en un diálogo de archivos (o pasadas por la línea de comandos) | Corrige las fuentes exportadas para que Microsoft Office (PowerPoint, Word) aplique sus sustituciones OpenType: añade una tabla `fvar` vacía, añade un registro de script `latn` copiado de `DFLT` en GSUB/GPOS y hace que `calt` ejecute también todos los lookups de `rclt` (compartidos, no copiados). Abre una ventana para elegir las correcciones y las fuentes; las copias van a una carpeta «Windows Fix» junto a cada fuente, salvo que elijas sobrescribir. Las fuentes web (`woff`, `woff2`) nunca se tocan y las fuentes variables reales conservan su `fvar`. También se ejecuta desde la línea de comandos y como Post-Export Command de Glyphs (véase abajo). |
 
 ### Comportamiento de Basic Math
 
@@ -73,6 +77,16 @@ Abre una fuente, guarda una copia y elige una herramienta en el menú. Los const
 ### Glifos existentes
 
 Dashes y Periodcentered/Bullet sustituyen el contenido de las capas de máster de destino. Fill Font Metadata sobrescribe los campos indicados arriba. En Arrow Maker, la opción **«Ask (backup then replace)» actualmente no muestra un diálogo de confirmación**; hace la copia de seguridad y sustituye. Usa una copia guardada de la fuente al probar estas herramientas.
+
+### Windows Font Fix como Post-Export Command
+
+Windows Font Fix puede ejecutarse automáticamente después de cada exportación con el plugin [Post-Export Command](https://github.com/florianpircher/Post-Export-Command) de Florian Pircher (en desarrollo; puede que haya que instalarlo desde su repositorio en lugar del Plugin Manager).
+
+1. Copia `windows-font-fix.sh` y `Windows Font Fix.py` de la carpeta `Plau/Post-Production` junto a tu archivo `.glyphs`.
+2. En Font Info, añade un custom parameter llamado `Post-Export Command` a la fuente (o a las instancias que exportas como TTF/OTF) con el valor `./windows-font-fix.sh`.
+3. Exporta. El plugin ejecuta el comando desde la carpeta del archivo `.glyphs` y pasa la ruta de la fuente exportada como primer argumento. Las fuentes web (`woff`, `woff2`) se ignoran, así que las exportaciones para web quedan como están.
+
+El script necesita Python con fontTools (`pip3 install fonttools`); `windows-font-fix.sh` lo busca en los lugares habituales, porque Glyphs inicia los comandos sin el entorno de tu shell. Desde la Terminal: `python3 "Windows Font Fix.py" --help`.
 
 ## Actualización y solución de problemas
 
