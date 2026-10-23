@@ -3,13 +3,14 @@
 
 __doc__ = """
 Builds the following math symbols: plus, minus, equal, multiply, divide, logicalnot, greater, less, greaterequal, lessequal. Empty master layers are filled. Existing less and lessequal master artwork is replaced with mirrored components; other artwork is preserved. Uses figurespace width when present, otherwise zero, per master. Measures n, hyphen, and dotaccentcomb. All symbol master layers receive this width and are centered horizontally without scaling.
-Stroke weight follows the stems of each master (Font Info → Masters → Stems): the horizontal stem for horizontal strokes and the vertical stem for vertical ones. A master without stems gets them measured on the classic glyphs: l, I or H (vertical, n as a last resort) and the crossbar of H or the hyphen (horizontal). The source of each value is printed in the Macro Panel.
+Stroke weight follows the stems of each master (Font Info → Masters → Stems): one thickness for all symbols, the horizontal stem by default, so every part of plus, multiply and the others is equally thick. A master without stems gets them measured on the classic glyphs: l, I or H (vertical, n as a last resort) and the crossbar of H or the hyphen (horizontal). The source of each value is printed in the Macro Panel.
+greater and less are open paths with a native Glyphs 4 stroke: move the nodes or change the stroke width afterwards.
 """
 
 import math
 
 from Foundation import NSClassFromString, NSAffineTransform
-from GlyphsApp import Glyphs, GSGlyph, GSComponent
+from GlyphsApp import Glyphs, GSGlyph, GSComponent, GSPath, GSNode, GSLINE
 
 font = Glyphs.font
 if font is None:
@@ -79,16 +80,18 @@ def require_intersections(points, glyph_name, layer):
 # Batch the changes: without this the sidebar re-filters after every new glyph.
 font.disableUpdateInterface()
 try:
-    master_contrast = {}  # per master: (vertical stem, horizontal stem) = full stroke thickness of vertical / horizontal strokes
+    master_contrast = {}  # per master: (x, y) = stroke thickness for vertical / horizontal strokes; both the same: one stem for every symbol
     symbol_width = {}
     hyphen_lsb = {}
     n_distance = {}
     n_stem = {}
     hyphen_factor = 1.1
     multiply_factor = 1.01
-    # Make the math strokes lighter or heavier than the font's stems (1.0 = exactly the stems).
-    vertical_stem_factor = 1.0
-    horizontal_stem_factor = 1.0
+    # All math symbols use ONE stroke thickness, so the arms of plus, multiply, greater... are equally thick.
+    # Which stem it follows: "horizontal" (the thickness of the minus), "vertical" or "average" of both.
+    math_stem = "horizontal"
+    # Lighter or heavier than that stem (1.0 = exactly the stem).
+    math_stem_factor = 1.0
 
 
     def font_stems(master):
@@ -185,9 +188,16 @@ try:
                 vertical_stem, vertical_source = defined_vertical, "font stems"
             else:
                 vertical_stem, vertical_source = measured_vertical_stem(master)
-            master_contrast[i] = (vertical_stem * vertical_stem_factor, horizontal_stem * horizontal_stem_factor)
-            print("Stems %s: horizontal %g (%s), vertical %g (%s)" % (
-                master.name, horizontal_stem, horizontal_source, vertical_stem, vertical_source))
+            if math_stem == "vertical":
+                stem = vertical_stem
+            elif math_stem == "average":
+                stem = (horizontal_stem + vertical_stem) / 2
+            else:
+                stem = horizontal_stem
+            stem *= math_stem_factor
+            master_contrast[i] = (stem, stem)
+            print("Stems %s: horizontal %g (%s), vertical %g (%s) -> math stem %g (%s)" % (
+                master.name, horizontal_stem, horizontal_source, vertical_stem, vertical_source, stem, math_stem))
 
 
 
@@ -324,6 +334,22 @@ try:
         layer.correctPathDirection()
 
 
+    def native_stroke(layer, points, master_id):
+        """Open path with a live Glyphs 4 stroke: stays editable (move nodes, change the stroke width)."""
+        stem = master_contrast[master_id][0]
+        path = GSPath()
+        for point in points:
+            path.nodes.append(GSNode(point, type=GSLINE))
+        path.closed = False
+        path.attributes['strokeWidth'] = stem
+        path.attributes['strokeHeight'] = stem
+        path.attributes['strokePos'] = 0     # centered on the path
+        path.attributes['lineCapStart'] = 0  # butt
+        path.attributes['lineCapEnd'] = 0
+        path.attributes['lineJoin'] = 0      # miter
+        layer.shapes.append(path)
+
+
     def positioned_component(name, x, y):
         component = GSComponent(name, (x, y))
         component.automaticAlignment = False
@@ -354,7 +380,7 @@ try:
             center_y = bounds.origin.y + bounds.size.height / 2
             half_height = bounds.size.width * comparison_height_factor / 2
             tip_x, ends_x = (right, left) if points_right else (left, right)
-            stroke_polyline(layer, [
+            native_stroke(layer, [
                 (ends_x, center_y + half_height),
                 (tip_x, center_y),
                 (ends_x, center_y - half_height),
