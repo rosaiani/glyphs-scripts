@@ -94,9 +94,13 @@ def main():
     if not font:
         raise RuntimeError('Abra uma fonte no Glyphs.')
 
-    # cria/atualiza endash e emdash
-    for name, f in DASHES:
-        build_dash_from_hyphen(font, name, f)
+    # cria/atualiza endash e emdash (updates batched: the sidebar would re-filter after every new glyph)
+    font.disableUpdateInterface()
+    try:
+        for name, f in DASHES:
+            build_dash_from_hyphen(font, name, f)
+    finally:
+        font.enableUpdateInterface()
 
 
 if __name__ == '__main__':

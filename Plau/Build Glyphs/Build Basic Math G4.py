@@ -76,336 +76,341 @@ def require_intersections(points, glyph_name, layer):
         )
 
 
-master_contrast = {}  # per master: (vertical stem, horizontal stem) = full stroke thickness of vertical / horizontal strokes
-symbol_width = {}
-hyphen_lsb = {}
-n_distance = {}
-n_stem = {}
-hyphen_factor = 1.1
-multiply_factor = 1.01
-# Make the math strokes lighter or heavier than the font's stems (1.0 = exactly the stems).
-vertical_stem_factor = 1.0
-horizontal_stem_factor = 1.0
+# Batch the changes: without this the sidebar re-filters after every new glyph.
+font.disableUpdateInterface()
+try:
+    master_contrast = {}  # per master: (vertical stem, horizontal stem) = full stroke thickness of vertical / horizontal strokes
+    symbol_width = {}
+    hyphen_lsb = {}
+    n_distance = {}
+    n_stem = {}
+    hyphen_factor = 1.1
+    multiply_factor = 1.01
+    # Make the math strokes lighter or heavier than the font's stems (1.0 = exactly the stems).
+    vertical_stem_factor = 1.0
+    horizontal_stem_factor = 1.0
 
 
-def font_stems(master):
-    """(horizontal, vertical) stems defined for this master in Font Info, or None where missing."""
-    horizontal = vertical = None
-    for stem in font.stems:
-        try:
-            value = master.stems[stem.id]
-        except Exception:
-            continue
-        if not value or value <= 0:
-            continue
-        if stem.horizontal:
-            horizontal = horizontal or value
-        else:
-            vertical = vertical or value
-    return horizontal, vertical
+    def font_stems(master):
+        """(horizontal, vertical) stems defined for this master in Font Info, or None where missing."""
+        horizontal = vertical = None
+        for stem in font.stems:
+            try:
+                value = master.stems[stem.id]
+            except Exception:
+                continue
+            if not value or value <= 0:
+                continue
+            if stem.horizontal:
+                horizontal = horizontal or value
+            else:
+                vertical = vertical or value
+        return horizontal, vertical
 
 
-def solid_layer(name, master):
-    glyph = font.glyphs[name]
-    layer = glyph.layers[master.id] if glyph is not None else None
-    if layer is None or len(layer.shapes) == 0:
-        return None
-    return layer.copyDecomposedLayer()
+    def solid_layer(name, master):
+        glyph = font.glyphs[name]
+        layer = glyph.layers[master.id] if glyph is not None else None
+        if layer is None or len(layer.shapes) == 0:
+            return None
+        return layer.copyDecomposedLayer()
 
 
-def first_run(layer, start, stop):
-    """Thickness of the first solid stretch crossed by the line start → stop."""
-    points = layer.intersectionsBetweenPoints(start, stop)
-    if len(points) < 4:
-        return None
-    return math.hypot(points[2].x - points[1].x, points[2].y - points[1].y)
+    def first_run(layer, start, stop):
+        """Thickness of the first solid stretch crossed by the line start → stop."""
+        points = layer.intersectionsBetweenPoints(start, stop)
+        if len(points) < 4:
+            return None
+        return math.hypot(points[2].x - points[1].x, points[2].y - points[1].y)
 
 
-def measured_vertical_stem(master):
-    """Vertical stem from the classic glyphs: l, I, H, and n as the last resort."""
-    for name, y in (("l", master.xHeight / 2), ("I", master.capHeight / 2), ("H", master.capHeight * 0.8)):
-        layer = solid_layer(name, master)
-        if layer is None:
-            continue
-        bounds = layer.bounds
-        value = first_run(layer, (bounds.origin.x - 10, y), (bounds.origin.x + bounds.size.width + 10, y))
-        if value:
-            return value, name
-    return n_stem[master.id], "n"
+    def measured_vertical_stem(master):
+        """Vertical stem from the classic glyphs: l, I, H, and n as the last resort."""
+        for name, y in (("l", master.xHeight / 2), ("I", master.capHeight / 2), ("H", master.capHeight * 0.8)):
+            layer = solid_layer(name, master)
+            if layer is None:
+                continue
+            bounds = layer.bounds
+            value = first_run(layer, (bounds.origin.x - 10, y), (bounds.origin.x + bounds.size.width + 10, y))
+            if value:
+                return value, name
+        return n_stem[master.id], "n"
 
 
-def measured_horizontal_stem(master, hyphen_thickness):
-    """Horizontal stem from the crossbar of H, or the hyphen's thickness."""
-    layer = solid_layer("H", master)
-    if layer is not None:
-        bounds = layer.bounds
-        x = bounds.origin.x + bounds.size.width / 2
-        value = first_run(layer, (x, master.capHeight + 10), (x, -10))
-        if value:
-            return value, "crossbar of H"
-    return hyphen_thickness, "hyphen"
+    def measured_horizontal_stem(master, hyphen_thickness):
+        """Horizontal stem from the crossbar of H, or the hyphen's thickness."""
+        layer = solid_layer("H", master)
+        if layer is not None:
+            bounds = layer.bounds
+            x = bounds.origin.x + bounds.size.width / 2
+            value = first_run(layer, (x, master.capHeight + 10), (x, -10))
+            if value:
+                return value, "crossbar of H"
+        return hyphen_thickness, "hyphen"
 
-for i, layer in master_layers(font.glyphs[spacing_name]):
-    if layer.isMasterLayer:
-        if layer.width <= 0:
-            raise RuntimeError("%s must have a positive width in master %s." % (
-                spacing_name, layer.master.name))
-        symbol_width[i] = layer.width
+    for i, layer in master_layers(font.glyphs[spacing_name]):
+        if layer.isMasterLayer:
+            if layer.width <= 0:
+                raise RuntimeError("%s must have a positive width in master %s." % (
+                    spacing_name, layer.master.name))
+            symbol_width[i] = layer.width
 
-for i, layer in master_layers(font.glyphs['n']):
-    if layer.isMasterLayer:
-        measure_y = layer.master.xHeight/3
-        start = 0
-        stop = layer.width
-        intersections = layer.intersectionsBetweenPoints((start, measure_y), (stop, measure_y))
-        require_intersections(intersections, "n", layer)
-        n_distance[i] = intersections[1].x + (stop-intersections[-2].x)
-        n_stem[i] = intersections[2].x - intersections[1].x
+    for i, layer in master_layers(font.glyphs['n']):
+        if layer.isMasterLayer:
+            measure_y = layer.master.xHeight/3
+            start = 0
+            stop = layer.width
+            intersections = layer.intersectionsBetweenPoints((start, measure_y), (stop, measure_y))
+            require_intersections(intersections, "n", layer)
+            n_distance[i] = intersections[1].x + (stop-intersections[-2].x)
+            n_stem[i] = intersections[2].x - intersections[1].x
 
-for i, layer in master_layers(font.glyphs['hyphen']):
-    if layer.isMasterLayer:
-        hyphen_layer = layer.copyDecomposedLayer()
-        hyphen_lsb[i] = layer.LSB * hyphen_factor
-        measure_x = hyphen_layer.width / 2
-        start = layer.master.capHeight
-        stop = layer.master.descender
-        intersections = hyphen_layer.intersectionsBetweenPoints((measure_x, start), (measure_x, stop))
-        require_intersections(intersections, "hyphen", layer)
-        hyphen_thickness = abs(intersections[-2].y - intersections[-3].y)
-        master = layer.master
-        defined_horizontal, defined_vertical = font_stems(master)
-        if defined_horizontal:
-            horizontal_stem, horizontal_source = defined_horizontal, "font stems"
-        else:
-            horizontal_stem, horizontal_source = measured_horizontal_stem(master, hyphen_thickness)
-        if defined_vertical:
-            vertical_stem, vertical_source = defined_vertical, "font stems"
-        else:
-            vertical_stem, vertical_source = measured_vertical_stem(master)
-        master_contrast[i] = (vertical_stem * vertical_stem_factor, horizontal_stem * horizontal_stem_factor)
-        print("Stems %s: horizontal %g (%s), vertical %g (%s)" % (
-            master.name, horizontal_stem, horizontal_source, vertical_stem, vertical_source))
-
-
-
-for i, layer in empty_master_layers('minus'):
-    h, v = master_contrast[i]
-    layer.width = symbol_width[i]
-    line_width = layer.width - hyphen_lsb[i]
-    y_start = layer.master.capHeight / 2
-    y_end = y_start
-    x_start = hyphen_lsb[i]
-    x_end = line_width
-    pen = layer.getPen()
-    pen.moveTo((x_start, y_start))
-    pen.lineTo((x_end, y_start))
-    pen.endPath()
-    stroke_layer(layer, h / 2, v / 2, False)
-    layer.correctPathDirection()
-
-for i, layer in empty_master_layers('plus'):
-    h,v = master_contrast[i]
-    layer.width = symbol_width[i]
-    line_width = layer.width - hyphen_lsb[i]
-    y_start = layer.master.capHeight / 2
-    y_end = y_start
-    x_start = hyphen_lsb[i]
-    x_end = line_width
-    pen = layer.getPen()
-    pen.moveTo((x_start, y_start))
-    pen.lineTo((x_end, y_start))
-    pen.endPath()
-
-    x_start = layer.width / 2
-    x_end = x_start
-    y_start = (layer.master.capHeight + hyphen_lsb[i] - line_width) / 2
-    y_end = layer.master.capHeight - y_start
-
-    pen.moveTo((x_start, y_start))
-    pen.lineTo((x_end, y_end))
-    pen.endPath()
-
-    stroke_layer(layer, h / 2, v / 2, True)
-    layer.correctPathDirection()
-
-for i, layer in empty_master_layers('equal'):
-    minusLayerBounds = font.glyphs['minus'].layers[i].bounds
-    equal_height = minusLayerBounds.size.height
-    layer.width = symbol_width[i]
-    y_offset = (equal_height/2) + (n_distance[i]/2)
-
-    top_equal = GSComponent('minus', (0, y_offset))
-    top_equal.automaticAlignment = False
-    layer.shapes.append(top_equal)
-
-    bottom_equal = GSComponent('minus', (0, -y_offset))
-    bottom_equal.automaticAlignment = False
-    layer.shapes.append(bottom_equal)
-
-for i, layer in empty_master_layers('multiply'):
-    h,v = master_contrast[i]
-    layer.width = symbol_width[i]
-    line_width = round((layer.width - hyphen_lsb[i]) * multiply_factor)
-    y_start = layer.master.capHeight / 2
-    y_end = y_start
-    x_start = (layer.width - line_width) / 2
-
-    x_end = x_start + line_width
-    pen = layer.getPen()
-    pen.moveTo((x_start, y_start))
-    pen.lineTo((x_end, y_start))
-    pen.endPath()
-
-    x_start = layer.width / 2
-    x_end = x_start
-    y_start = (layer.master.capHeight - line_width) / 2
-    y_end = y_start + line_width
-
-    pen.moveTo((x_start, y_start))
-    pen.lineTo((x_end, y_end))
-    pen.endPath()
-
-    stroke_layer(layer, h / 2, v / 2, True)
-    layer.correctPathDirection()
-    rotate_transform = NSAffineTransform.new()
-    cx, cy = layer.width / 2, layer.master.capHeight / 2
-    rotate_transform.translateXBy_yBy_(cx, cy)
-    rotate_transform.rotateByDegrees_(45)
-    rotate_transform.translateXBy_yBy_(-cx, -cy)
-    layer.applyTransform(rotate_transform)
-
-for i, layer in empty_master_layers('divide'):
-    minusLayerBounds = font.glyphs['minus'].layers[i].bounds
-    layer.width = symbol_width[i]
-    divide_height = minusLayerBounds.size.height
-    divide_bottom = minusLayerBounds.origin.y
-    dotaccentBounds = font.glyphs['dotaccentcomb'].layers[i].bounds
-    dot_accent_x = dotaccentBounds.origin.x
-    dot_accent_width = dotaccentBounds.size.width
-    dot_accent_height = dotaccentBounds.size.height
-    dot_accent_y = dotaccentBounds.origin.y
-    dot_accent_distance = dotaccentBounds.origin.y - layer.master.xHeight
-
-    minus = GSComponent('minus')
-    minus.automaticAlignment = False
-
-    x = (layer.width / 2) - (dot_accent_width / 2) - dot_accent_x
-    y = (layer.master.capHeight / 2) - dot_accent_y + (divide_height / 2) + dot_accent_distance
-    dot_top = GSComponent('dotaccentcomb', (x, y))
-
-    x = (layer.width / 2) - (dot_accent_width / 2) - dot_accent_x
-    y = divide_bottom - dot_accent_y - dot_accent_height - dot_accent_distance
-    dot_bottom = GSComponent('dotaccentcomb', (x, y))
-    dot_top.automaticAlignment = False
-    dot_bottom.automaticAlignment = False
-
-    layer.shapes.append(minus)
-    layer.shapes.append(dot_top)
-    layer.shapes.append(dot_bottom)
+    for i, layer in master_layers(font.glyphs['hyphen']):
+        if layer.isMasterLayer:
+            hyphen_layer = layer.copyDecomposedLayer()
+            hyphen_lsb[i] = layer.LSB * hyphen_factor
+            measure_x = hyphen_layer.width / 2
+            start = layer.master.capHeight
+            stop = layer.master.descender
+            intersections = hyphen_layer.intersectionsBetweenPoints((measure_x, start), (measure_x, stop))
+            require_intersections(intersections, "hyphen", layer)
+            hyphen_thickness = abs(intersections[-2].y - intersections[-3].y)
+            master = layer.master
+            defined_horizontal, defined_vertical = font_stems(master)
+            if defined_horizontal:
+                horizontal_stem, horizontal_source = defined_horizontal, "font stems"
+            else:
+                horizontal_stem, horizontal_source = measured_horizontal_stem(master, hyphen_thickness)
+            if defined_vertical:
+                vertical_stem, vertical_source = defined_vertical, "font stems"
+            else:
+                vertical_stem, vertical_source = measured_vertical_stem(master)
+            master_contrast[i] = (vertical_stem * vertical_stem_factor, horizontal_stem * horizontal_stem_factor)
+            print("Stems %s: horizontal %g (%s), vertical %g (%s)" % (
+                master.name, horizontal_stem, horizontal_source, vertical_stem, vertical_source))
 
 
 
-# Additional proportions, relative to the length of the minus sign.
-comparison_height_factor = 0.70
-logicalnot_depth_factor = 0.35
+    for i, layer in empty_master_layers('minus'):
+        h, v = master_contrast[i]
+        layer.width = symbol_width[i]
+        line_width = layer.width - hyphen_lsb[i]
+        y_start = layer.master.capHeight / 2
+        y_end = y_start
+        x_start = hyphen_lsb[i]
+        x_end = line_width
+        pen = layer.getPen()
+        pen.moveTo((x_start, y_start))
+        pen.lineTo((x_end, y_start))
+        pen.endPath()
+        stroke_layer(layer, h / 2, v / 2, False)
+        layer.correctPathDirection()
+
+    for i, layer in empty_master_layers('plus'):
+        h,v = master_contrast[i]
+        layer.width = symbol_width[i]
+        line_width = layer.width - hyphen_lsb[i]
+        y_start = layer.master.capHeight / 2
+        y_end = y_start
+        x_start = hyphen_lsb[i]
+        x_end = line_width
+        pen = layer.getPen()
+        pen.moveTo((x_start, y_start))
+        pen.lineTo((x_end, y_start))
+        pen.endPath()
+
+        x_start = layer.width / 2
+        x_end = x_start
+        y_start = (layer.master.capHeight + hyphen_lsb[i] - line_width) / 2
+        y_end = layer.master.capHeight - y_start
+
+        pen.moveTo((x_start, y_start))
+        pen.lineTo((x_end, y_end))
+        pen.endPath()
+
+        stroke_layer(layer, h / 2, v / 2, True)
+        layer.correctPathDirection()
+
+    for i, layer in empty_master_layers('equal'):
+        minusLayerBounds = font.glyphs['minus'].layers[i].bounds
+        equal_height = minusLayerBounds.size.height
+        layer.width = symbol_width[i]
+        y_offset = (equal_height/2) + (n_distance[i]/2)
+
+        top_equal = GSComponent('minus', (0, y_offset))
+        top_equal.automaticAlignment = False
+        layer.shapes.append(top_equal)
+
+        bottom_equal = GSComponent('minus', (0, -y_offset))
+        bottom_equal.automaticAlignment = False
+        layer.shapes.append(bottom_equal)
+
+    for i, layer in empty_master_layers('multiply'):
+        h,v = master_contrast[i]
+        layer.width = symbol_width[i]
+        line_width = round((layer.width - hyphen_lsb[i]) * multiply_factor)
+        y_start = layer.master.capHeight / 2
+        y_end = y_start
+        x_start = (layer.width - line_width) / 2
+
+        x_end = x_start + line_width
+        pen = layer.getPen()
+        pen.moveTo((x_start, y_start))
+        pen.lineTo((x_end, y_start))
+        pen.endPath()
+
+        x_start = layer.width / 2
+        x_end = x_start
+        y_start = (layer.master.capHeight - line_width) / 2
+        y_end = y_start + line_width
+
+        pen.moveTo((x_start, y_start))
+        pen.lineTo((x_end, y_end))
+        pen.endPath()
+
+        stroke_layer(layer, h / 2, v / 2, True)
+        layer.correctPathDirection()
+        rotate_transform = NSAffineTransform.new()
+        cx, cy = layer.width / 2, layer.master.capHeight / 2
+        rotate_transform.translateXBy_yBy_(cx, cy)
+        rotate_transform.rotateByDegrees_(45)
+        rotate_transform.translateXBy_yBy_(-cx, -cy)
+        layer.applyTransform(rotate_transform)
+
+    for i, layer in empty_master_layers('divide'):
+        minusLayerBounds = font.glyphs['minus'].layers[i].bounds
+        layer.width = symbol_width[i]
+        divide_height = minusLayerBounds.size.height
+        divide_bottom = minusLayerBounds.origin.y
+        dotaccentBounds = font.glyphs['dotaccentcomb'].layers[i].bounds
+        dot_accent_x = dotaccentBounds.origin.x
+        dot_accent_width = dotaccentBounds.size.width
+        dot_accent_height = dotaccentBounds.size.height
+        dot_accent_y = dotaccentBounds.origin.y
+        dot_accent_distance = dotaccentBounds.origin.y - layer.master.xHeight
+
+        minus = GSComponent('minus')
+        minus.automaticAlignment = False
+
+        x = (layer.width / 2) - (dot_accent_width / 2) - dot_accent_x
+        y = (layer.master.capHeight / 2) - dot_accent_y + (divide_height / 2) + dot_accent_distance
+        dot_top = GSComponent('dotaccentcomb', (x, y))
+
+        x = (layer.width / 2) - (dot_accent_width / 2) - dot_accent_x
+        y = divide_bottom - dot_accent_y - dot_accent_height - dot_accent_distance
+        dot_bottom = GSComponent('dotaccentcomb', (x, y))
+        dot_top.automaticAlignment = False
+        dot_bottom.automaticAlignment = False
+
+        layer.shapes.append(minus)
+        layer.shapes.append(dot_top)
+        layer.shapes.append(dot_bottom)
 
 
-def stroke_polyline(layer, points, master_id):
-    pen = layer.getPen()
-    pen.moveTo(points[0])
-    for point in points[1:]:
-        pen.lineTo(point)
-    pen.endPath()
-    h, v = master_contrast[master_id]
-    stroke_layer(layer, h / 2, v / 2, True)
-    layer.correctPathDirection()
+
+    # Additional proportions, relative to the length of the minus sign.
+    comparison_height_factor = 0.70
+    logicalnot_depth_factor = 0.35
 
 
-def positioned_component(name, x, y):
-    component = GSComponent(name, (x, y))
-    component.automaticAlignment = False
-    return component
+    def stroke_polyline(layer, points, master_id):
+        pen = layer.getPen()
+        pen.moveTo(points[0])
+        for point in points[1:]:
+            pen.lineTo(point)
+        pen.endPath()
+        h, v = master_contrast[master_id]
+        stroke_layer(layer, h / 2, v / 2, True)
+        layer.correctPathDirection()
 
 
-for i, layer in empty_master_layers('logicalnot'):
-    layer.width = symbol_width[i]
-    bounds = font.glyphs['minus'].layers[i].bounds
-    left = bounds.origin.x
-    right = left + bounds.size.width
-    center_y = bounds.origin.y + bounds.size.height / 2
-    # Inset the corner by half the vertical stem so its outer edge
-    # aligns with the right edge of minus after stroking.
-    right -= master_contrast[i][0] / 2
-    depth = bounds.size.width * logicalnot_depth_factor
-    stroke_polyline(layer, [
-        (left, center_y), (right, center_y), (right, center_y - depth)
-    ], i)
+    def positioned_component(name, x, y):
+        component = GSComponent(name, (x, y))
+        component.automaticAlignment = False
+        return component
 
 
-for name, points_right in (('greater', True),):
-    for i, layer in empty_master_layers(name):
+    for i, layer in empty_master_layers('logicalnot'):
         layer.width = symbol_width[i]
         bounds = font.glyphs['minus'].layers[i].bounds
         left = bounds.origin.x
         right = left + bounds.size.width
         center_y = bounds.origin.y + bounds.size.height / 2
-        half_height = bounds.size.width * comparison_height_factor / 2
-        tip_x, ends_x = (right, left) if points_right else (left, right)
+        # Inset the corner by half the vertical stem so its outer edge
+        # aligns with the right edge of minus after stroking.
+        right -= master_contrast[i][0] / 2
+        depth = bounds.size.width * logicalnot_depth_factor
         stroke_polyline(layer, [
-            (ends_x, center_y + half_height),
-            (tip_x, center_y),
-            (ends_x, center_y - half_height),
+            (left, center_y), (right, center_y), (right, center_y - depth)
         ], i)
 
 
-for name, comparison in (('greaterequal', 'greater'),):
-    for i, layer in empty_master_layers(name):
-        layer.width = symbol_width[i]
-        sign_bounds = font.glyphs[comparison].layers[i].bounds
-        bar_bounds = font.glyphs['minus'].layers[i].bounds
-        # One horizontal bar below the comparison sign. Match the clear
-        # gap in equal and center the complete symbol on the math axis.
-        gap = max(0, n_distance[i])
-        total_height = sign_bounds.size.height + gap + bar_bounds.size.height
-        axis_y = bar_bounds.origin.y + bar_bounds.size.height / 2
-        bottom_y = axis_y - total_height / 2
-        bar_x = (layer.width - bar_bounds.size.width) / 2 - bar_bounds.origin.x
-        bar_y = bottom_y - bar_bounds.origin.y
-        sign_x = (layer.width - sign_bounds.size.width) / 2 - sign_bounds.origin.x
-        sign_y = bottom_y + bar_bounds.size.height + gap - sign_bounds.origin.y
-        layer.shapes.append(positioned_component(comparison, sign_x, sign_y))
-        layer.shapes.append(positioned_component('minus', bar_x, bar_y))
-
-# Space in dependency order: source components must be positioned before
-# the glyphs referencing them. Center artwork without changing its size.
-for name in ('minus', 'plus', 'equal', 'multiply', 'divide',
-             'logicalnot', 'greater', 'greaterequal'):
-    for master_id, layer in master_layers(font.glyphs[name]):
-        width = symbol_width[master_id]
-        bounds = layer.bounds
-        if len(layer.shapes):
-            shift_x = (width - bounds.size.width) / 2 - bounds.origin.x
-            if abs(shift_x) > 0.000001:
-                layer.applyTransform((1, 0, 0, 1, shift_x, 0))
-        layer.width = width
+    for name, points_right in (('greater', True),):
+        for i, layer in empty_master_layers(name):
+            layer.width = symbol_width[i]
+            bounds = font.glyphs['minus'].layers[i].bounds
+            left = bounds.origin.x
+            right = left + bounds.size.width
+            center_y = bounds.origin.y + bounds.size.height / 2
+            half_height = bounds.size.width * comparison_height_factor / 2
+            tip_x, ends_x = (right, left) if points_right else (left, right)
+            stroke_polyline(layer, [
+                (ends_x, center_y + half_height),
+                (tip_x, center_y),
+                (ends_x, center_y - half_height),
+            ], i)
 
 
-# Always update these two glyphs, including versions made by earlier scripts.
-# Reflect across the source advance-width midpoint: x becomes width - x.
-for target_name, source_name in (('less', 'greater'), ('lessequal', 'greaterequal')):
-    target = font.glyphs[target_name]
-    if target is None:
-        target = GSGlyph(target_name)
-        font.glyphs.append(target)
-    for master_id, layer in master_layers(target):
-        source_layer = font.glyphs[source_name].layers[master_id]
-        width = symbol_width[master_id]
-        component = GSComponent(source_name)
-        component.automaticAlignment = False
-        component.transform = (-1, 0, 0, 1, width, 0)
-        layer.shapes = [component]
-        layer.width = width
-        print("Linked %s / %s to mirrored %s" % (
-            target_name, layer.master.name, source_name))
+    for name, comparison in (('greaterequal', 'greater'),):
+        for i, layer in empty_master_layers(name):
+            layer.width = symbol_width[i]
+            sign_bounds = font.glyphs[comparison].layers[i].bounds
+            bar_bounds = font.glyphs['minus'].layers[i].bounds
+            # One horizontal bar below the comparison sign. Match the clear
+            # gap in equal and center the complete symbol on the math axis.
+            gap = max(0, n_distance[i])
+            total_height = sign_bounds.size.height + gap + bar_bounds.size.height
+            axis_y = bar_bounds.origin.y + bar_bounds.size.height / 2
+            bottom_y = axis_y - total_height / 2
+            bar_x = (layer.width - bar_bounds.size.width) / 2 - bar_bounds.origin.x
+            bar_y = bottom_y - bar_bounds.origin.y
+            sign_x = (layer.width - sign_bounds.size.width) / 2 - sign_bounds.origin.x
+            sign_y = bottom_y + bar_bounds.size.height + gap - sign_bounds.origin.y
+            layer.shapes.append(positioned_component(comparison, sign_x, sign_y))
+            layer.shapes.append(positioned_component('minus', bar_x, bar_y))
 
-print("Finished. All math symbols use %s width in each master; less and lessequal use mirrored components." % spacing_name)
+    # Space in dependency order: source components must be positioned before
+    # the glyphs referencing them. Center artwork without changing its size.
+    for name in ('minus', 'plus', 'equal', 'multiply', 'divide',
+                 'logicalnot', 'greater', 'greaterequal'):
+        for master_id, layer in master_layers(font.glyphs[name]):
+            width = symbol_width[master_id]
+            bounds = layer.bounds
+            if len(layer.shapes):
+                shift_x = (width - bounds.size.width) / 2 - bounds.origin.x
+                if abs(shift_x) > 0.000001:
+                    layer.applyTransform((1, 0, 0, 1, shift_x, 0))
+            layer.width = width
+
+
+    # Always update these two glyphs, including versions made by earlier scripts.
+    # Reflect across the source advance-width midpoint: x becomes width - x.
+    for target_name, source_name in (('less', 'greater'), ('lessequal', 'greaterequal')):
+        target = font.glyphs[target_name]
+        if target is None:
+            target = GSGlyph(target_name)
+            font.glyphs.append(target)
+        for master_id, layer in master_layers(target):
+            source_layer = font.glyphs[source_name].layers[master_id]
+            width = symbol_width[master_id]
+            component = GSComponent(source_name)
+            component.automaticAlignment = False
+            component.transform = (-1, 0, 0, 1, width, 0)
+            layer.shapes = [component]
+            layer.width = width
+            print("Linked %s / %s to mirrored %s" % (
+                target_name, layer.master.name, source_name))
+
+    print("Finished. All math symbols use %s width in each master; less and lessequal use mirrored components." % spacing_name)
+finally:
+    font.enableUpdateInterface()

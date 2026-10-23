@@ -301,6 +301,7 @@ class ArrowBuilderUI(object):
         if self.w.chkLR.get(): todo.append('arrowleftright')
         if self.w.chkUD.get(): todo.append('arrowupdown')
 
+        font.disableUpdateInterface()  # batch the changes: the sidebar would re-filter after every new glyph
         try:
             for name in todo:
                 if name in ('arrowright','arrowleft','arrowleftright'):
@@ -310,6 +311,8 @@ class ArrowBuilderUI(object):
         except Exception as e:
             Message(str(e), 'Build Arrows')
             return
+        finally:
+            font.enableUpdateInterface()
 
         print('✅ Arrows criadas/atualizadas:', ', '.join(todo))
         self.w.close()
