@@ -74,7 +74,7 @@ Open a font, save a copy, and choose a tool from the menu. Glyph builders genera
 - **`less` and `lessequal` are rebuilt on every run**, replacing their master-layer artwork with horizontally mirrored components of `greater` and `greaterequal`.
 - Editing the source shapes updates their mirrored counterparts. Rerun the script after changing spacing-source widths to apply the new widths and reflection positions.
 - All symbols use **one stroke thickness**, so every part of `plus`, `multiply` and the others is equally thick. It follows the stems of each master (Font Info → Masters → Stems): the horizontal stem by default, the same thickness as `minus`. A master without stems gets them measured on the classic glyphs: `l`, `I` or `H` (vertical, with `n` as a last resort) and the crossbar of `H` or `hyphen` (horizontal). The source of each value is printed in the Macro Panel. At the top of the script, `math_stem` chooses `"horizontal"`, `"vertical"` or `"average"`, and `math_stem_factor` makes the symbols lighter or heavier than that stem.
-- `greater` is an open path with a native Glyphs 4 stroke (and `less` mirrors it), so after generation you can move its nodes or change the stroke width instead of editing an outline.
+- `greater` is an open path with a native Glyphs 4 stroke (and `less` mirrors it), so after generation you can move its nodes or change the stroke width instead of editing an outline. The stroke ends are aligned to the axis and the tip has a bevel join (flat tip); `stroke_cap` and `stroke_join` at the top of the script change that.
 
 ### Existing glyphs
 

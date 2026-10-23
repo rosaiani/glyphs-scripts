@@ -74,7 +74,7 @@ Abra uma fonte, salve uma cópia e escolha uma ferramenta no menu. Os construtor
 - **`less` e `lessequal` são reconstruídos a cada execução**, substituindo o desenho das layers de master por componentes de `greater` e `greaterequal` espelhados na horizontal.
 - Editar as formas de origem atualiza os glifos espelhados. Execute o script de novo depois de mudar as larguras de origem do espaçamento, para aplicar as novas larguras e posições de reflexo.
 - Todos os símbolos usam **uma única espessura de traço**, então todas as partes de `plus`, `multiply` e dos demais têm a mesma espessura. Ela segue os stems de cada master (Font Info → Masters → Stems): por padrão o stem horizontal, a mesma espessura do `minus`. Uma master sem stems tem esses valores medidos nos glifos clássicos: `l`, `I` ou `H` (vertical, com `n` como último recurso) e o travessão do `H` ou o `hyphen` (horizontal). A origem de cada valor é impressa no Macro Panel. No início do script, `math_stem` escolhe `"horizontal"`, `"vertical"` ou `"average"`, e `math_stem_factor` deixa os símbolos mais leves ou mais pesados que esse stem.
-- `greater` é um caminho aberto com stroke nativo do Glyphs 4 (e `less` o espelha), então depois da geração você pode mover os nós ou mudar a espessura do stroke em vez de editar um contorno.
+- `greater` é um caminho aberto com stroke nativo do Glyphs 4 (e `less` o espelha), então depois da geração você pode mover os nós ou mudar a espessura do stroke em vez de editar um contorno. As pontas do stroke ficam alinhadas ao eixo e a ponta do `>` tem junção bevel (ponta chata); `stroke_cap` e `stroke_join` no início do script mudam isso.
 
 ### Glifos existentes
 

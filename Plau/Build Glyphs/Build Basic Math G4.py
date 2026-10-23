@@ -4,7 +4,7 @@
 __doc__ = """
 Builds the following math symbols: plus, minus, equal, multiply, divide, logicalnot, greater, less, greaterequal, lessequal. Empty master layers are filled. Existing less and lessequal master artwork is replaced with mirrored components; other artwork is preserved. Uses figurespace width when present, otherwise zero, per master. Measures n, hyphen, and dotaccentcomb. All symbol master layers receive this width and are centered horizontally without scaling.
 Stroke weight follows the stems of each master (Font Info → Masters → Stems): one thickness for all symbols, the horizontal stem by default, so every part of plus, multiply and the others is equally thick. A master without stems gets them measured on the classic glyphs: l, I or H (vertical, n as a last resort) and the crossbar of H or the hyphen (horizontal). The source of each value is printed in the Macro Panel.
-greater and less are open paths with a native Glyphs 4 stroke: move the nodes or change the stroke width afterwards.
+greater and less are open paths with a native Glyphs 4 stroke (ends aligned to the axis, bevel join at the tip): move the nodes or change the stroke afterwards.
 """
 
 import math
@@ -92,6 +92,11 @@ try:
     math_stem = "horizontal"
     # Lighter or heavier than that stem (1.0 = exactly the stem).
     math_stem_factor = 1.0
+    # Stroke style of greater / less, as in the Glyphs 4 stroke panel.
+    # Caps (stroke ends): 0 butt, 1 round, 2 square, 3 round inset, 4 aligned to the nearest axis, 5 aligned to x, 6 aligned to y.
+    stroke_cap = 4
+    # Join (the tip): 0 miter, 1 round, 2 bevel (flat tip), 3 round full.
+    stroke_join = 2
 
 
     def font_stems(master):
@@ -344,9 +349,9 @@ try:
         path.attributes['strokeWidth'] = stem
         path.attributes['strokeHeight'] = stem
         path.attributes['strokePos'] = 0     # centered on the path
-        path.attributes['lineCapStart'] = 0  # butt
-        path.attributes['lineCapEnd'] = 0
-        path.attributes['lineJoin'] = 0      # miter
+        path.attributes['lineCapStart'] = stroke_cap
+        path.attributes['lineCapEnd'] = stroke_cap
+        path.attributes['lineJoin'] = stroke_join
         layer.shapes.append(path)
 
 
