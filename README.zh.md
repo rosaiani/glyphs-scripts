@@ -73,6 +73,7 @@ Scripts/
 - 空的主板图层会被填充。大多数符号会保留已有的图形，但所有符号的主板图层都会被设为所选宽度，并在水平方向居中，不进行缩放。
 - **`less` 和 `lessequal` 每次运行都会重建**，其主板图层中的图形会被替换为 `greater` 和 `greaterequal` 水平镜像后的组件。
 - 编辑源形状会同时更新其镜像对应的字形。更改间距来源的宽度后，请重新运行脚本，以应用新的宽度和镜像位置。
+- 笔画粗细遵循每个主板的笔画粗细值（stems，Font Info → Masters → Stems）：水平笔画使用水平 stem，垂直笔画使用垂直 stem。没有设置 stems 的主板，会从经典字形中测量：垂直 stem 取自 `l`、`I` 或 `H`（最后才用 `n`），水平 stem 取自 `H` 的横梁或 `hyphen`。每个数值的来源会打印在 Macro Panel 中。可以修改脚本开头的 `vertical_stem_factor` 和 `horizontal_stem_factor`，让符号比 stems 更细或更粗。
 
 ### 已有的字形
 

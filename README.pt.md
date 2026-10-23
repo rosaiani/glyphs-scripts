@@ -73,6 +73,7 @@ Abra uma fonte, salve uma cópia e escolha uma ferramenta no menu. Os construtor
 - As layers de master vazias são preenchidas. O desenho existente é mantido na maioria dos símbolos, mas todas as layers de master dos símbolos recebem a largura escolhida e são centralizadas na horizontal, sem escala.
 - **`less` e `lessequal` são reconstruídos a cada execução**, substituindo o desenho das layers de master por componentes de `greater` e `greaterequal` espelhados na horizontal.
 - Editar as formas de origem atualiza os glifos espelhados. Execute o script de novo depois de mudar as larguras de origem do espaçamento, para aplicar as novas larguras e posições de reflexo.
+- A espessura do traço segue os stems de cada master (Font Info → Masters → Stems): o stem horizontal para traços horizontais e o stem vertical para os verticais. Uma master sem stems tem esses valores medidos nos glifos clássicos: `l`, `I` ou `H` (vertical, com `n` como último recurso) e o travessão do `H` ou o `hyphen` (horizontal). A origem de cada valor é impressa no Macro Panel. Altere `vertical_stem_factor` e `horizontal_stem_factor` no início do script para deixar os símbolos mais leves ou mais pesados que os stems.
 
 ### Glifos existentes
 

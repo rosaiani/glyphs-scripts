@@ -3,7 +3,10 @@
 
 __doc__ = """
 Builds the following math symbols: plus, minus, equal, multiply, divide, logicalnot, greater, less, greaterequal, lessequal. Empty master layers are filled. Existing less and lessequal master artwork is replaced with mirrored components; other artwork is preserved. Uses figurespace width when present, otherwise zero, per master. Measures n, hyphen, and dotaccentcomb. All symbol master layers receive this width and are centered horizontally without scaling.
+Stroke weight follows the stems of each master (Font Info → Masters → Stems): the horizontal stem for horizontal strokes and the vertical stem for vertical ones. A master without stems gets them measured on the classic glyphs: l, I or H (vertical, n as a last resort) and the crossbar of H or the hyphen (horizontal). The source of each value is printed in the Macro Panel.
 """
+
+import math
 
 from Foundation import NSClassFromString, NSAffineTransform
 from GlyphsApp import Glyphs, GSGlyph, GSComponent
@@ -22,6 +25,28 @@ if missing:
 offsetFilter = NSClassFromString("GSOffsetCurve")
 if offsetFilter is None:
     raise RuntimeError("GSOffsetCurve is unavailable. Run this script in Glyphs 4.")
+
+MITER_LIMIT = 10  # Glyphs 4.2 (build 4202) added a miter limit to the stroke operation
+
+
+def stroke_layer(layer, offset_x, offset_y, keep_compatible):
+    """Turns the open paths of the layer into strokes: offset_x / offset_y are half the thickness of vertical / horizontal strokes."""
+    arguments = (
+        layer,
+        offset_x, offset_y,  # horizontal and vertical offset
+        True,      # creates a stroke
+        False,     # if True, distorts resulting shape to vertical metrics
+        0.0,       # position: -1 = left, 0 = centered, 1 = right
+        None, None, None,  # metrics, error, shadow
+        0, 0, 0,   # cap start, cap end, join (0 = butt caps, miter join)
+    )
+    try:
+        return offsetFilter.offsetLayer_offsetX_offsetY_makeStroke_autoStroke_position_metrics_error_shadow_capStyleStart_capStyleEnd_join_miterLimit_keepCompatibleOutlines_(
+            *arguments, MITER_LIMIT, keep_compatible)
+    except AttributeError:
+        # Glyphs 4.0 / 4.1 (before the miter limit existed)
+        return offsetFilter.offsetLayer_offsetX_offsetY_makeStroke_autoStroke_position_metrics_error_shadow_capStyleStart_capStyleEnd_join_keepCompatibleOutlines_(
+            *arguments, keep_compatible)
 
 
 def master_layers(glyph):
@@ -51,14 +76,74 @@ def require_intersections(points, glyph_name, layer):
         )
 
 
-master_contrast = {}
+master_contrast = {}  # per master: (vertical stem, horizontal stem) = full stroke thickness of vertical / horizontal strokes
 symbol_width = {}
 hyphen_lsb = {}
 n_distance = {}
+n_stem = {}
 hyphen_factor = 1.1
-hyphen_thick_factor = 0.9
-contrast_factor = 0.95
 multiply_factor = 1.01
+# Make the math strokes lighter or heavier than the font's stems (1.0 = exactly the stems).
+vertical_stem_factor = 1.0
+horizontal_stem_factor = 1.0
+
+
+def font_stems(master):
+    """(horizontal, vertical) stems defined for this master in Font Info, or None where missing."""
+    horizontal = vertical = None
+    for stem in font.stems:
+        try:
+            value = master.stems[stem.id]
+        except Exception:
+            continue
+        if not value or value <= 0:
+            continue
+        if stem.horizontal:
+            horizontal = horizontal or value
+        else:
+            vertical = vertical or value
+    return horizontal, vertical
+
+
+def solid_layer(name, master):
+    glyph = font.glyphs[name]
+    layer = glyph.layers[master.id] if glyph is not None else None
+    if layer is None or len(layer.shapes) == 0:
+        return None
+    return layer.copyDecomposedLayer()
+
+
+def first_run(layer, start, stop):
+    """Thickness of the first solid stretch crossed by the line start → stop."""
+    points = layer.intersectionsBetweenPoints(start, stop)
+    if len(points) < 4:
+        return None
+    return math.hypot(points[2].x - points[1].x, points[2].y - points[1].y)
+
+
+def measured_vertical_stem(master):
+    """Vertical stem from the classic glyphs: l, I, H, and n as the last resort."""
+    for name, y in (("l", master.xHeight / 2), ("I", master.capHeight / 2), ("H", master.capHeight * 0.8)):
+        layer = solid_layer(name, master)
+        if layer is None:
+            continue
+        bounds = layer.bounds
+        value = first_run(layer, (bounds.origin.x - 10, y), (bounds.origin.x + bounds.size.width + 10, y))
+        if value:
+            return value, name
+    return n_stem[master.id], "n"
+
+
+def measured_horizontal_stem(master, hyphen_thickness):
+    """Horizontal stem from the crossbar of H, or the hyphen's thickness."""
+    layer = solid_layer("H", master)
+    if layer is not None:
+        bounds = layer.bounds
+        x = bounds.origin.x + bounds.size.width / 2
+        value = first_run(layer, (x, master.capHeight + 10), (x, -10))
+        if value:
+            return value, "crossbar of H"
+    return hyphen_thickness, "hyphen"
 
 for i, layer in master_layers(font.glyphs[spacing_name]):
     if layer.isMasterLayer:
@@ -75,6 +160,7 @@ for i, layer in master_layers(font.glyphs['n']):
         intersections = layer.intersectionsBetweenPoints((start, measure_y), (stop, measure_y))
         require_intersections(intersections, "n", layer)
         n_distance[i] = intersections[1].x + (stop-intersections[-2].x)
+        n_stem[i] = intersections[2].x - intersections[1].x
 
 for i, layer in master_layers(font.glyphs['hyphen']):
     if layer.isMasterLayer:
@@ -85,8 +171,20 @@ for i, layer in master_layers(font.glyphs['hyphen']):
         stop = layer.master.descender
         intersections = hyphen_layer.intersectionsBetweenPoints((measure_x, start), (measure_x, stop))
         require_intersections(intersections, "hyphen", layer)
-        stem_height = abs(intersections[-2].y - intersections[-3].y) * hyphen_thick_factor
-        master_contrast[i] = (stem_height, round(stem_height * contrast_factor))
+        hyphen_thickness = abs(intersections[-2].y - intersections[-3].y)
+        master = layer.master
+        defined_horizontal, defined_vertical = font_stems(master)
+        if defined_horizontal:
+            horizontal_stem, horizontal_source = defined_horizontal, "font stems"
+        else:
+            horizontal_stem, horizontal_source = measured_horizontal_stem(master, hyphen_thickness)
+        if defined_vertical:
+            vertical_stem, vertical_source = defined_vertical, "font stems"
+        else:
+            vertical_stem, vertical_source = measured_vertical_stem(master)
+        master_contrast[i] = (vertical_stem * vertical_stem_factor, horizontal_stem * horizontal_stem_factor)
+        print("Stems %s: horizontal %g (%s), vertical %g (%s)" % (
+            master.name, horizontal_stem, horizontal_source, vertical_stem, vertical_source))
 
 
 
@@ -102,13 +200,7 @@ for i, layer in empty_master_layers('minus'):
     pen.moveTo((x_start, y_start))
     pen.lineTo((x_end, y_start))
     pen.endPath()
-    offsetFilter.offsetLayer_offsetX_offsetY_makeStroke_autoStroke_position_metrics_error_shadow_capStyleStart_capStyleEnd_join_keepCompatibleOutlines_(
-        layer,
-        h / 2, v / 2, # horizontal and vertical offset
-        True,     # if True, creates a stroke
-        False,     # if True, distorts resulting shape to vertical metrics
-        0.0,       # Glyphs 4: -1 = left, 0 = centered, 1 = right
-        None, None, None, 0, 0, 0, False)
+    stroke_layer(layer, h / 2, v / 2, False)
     layer.correctPathDirection()
 
 for i, layer in empty_master_layers('plus'):
@@ -133,13 +225,7 @@ for i, layer in empty_master_layers('plus'):
     pen.lineTo((x_end, y_end))
     pen.endPath()
 
-    offsetFilter.offsetLayer_offsetX_offsetY_makeStroke_autoStroke_position_metrics_error_shadow_capStyleStart_capStyleEnd_join_keepCompatibleOutlines_(
-        layer,
-        h / 2, v / 2, # horizontal and vertical offset
-        True,     # if True, creates a stroke
-        False,     # if True, distorts resulting shape to vertical metrics
-        0.0,       # Glyphs 4: -1 = left, 0 = centered, 1 = right
-        None, None, None, 0, 0, 0, True)
+    stroke_layer(layer, h / 2, v / 2, True)
     layer.correctPathDirection()
 
 for i, layer in empty_master_layers('equal'):
@@ -179,13 +265,7 @@ for i, layer in empty_master_layers('multiply'):
     pen.lineTo((x_end, y_end))
     pen.endPath()
 
-    offsetFilter.offsetLayer_offsetX_offsetY_makeStroke_autoStroke_position_metrics_error_shadow_capStyleStart_capStyleEnd_join_keepCompatibleOutlines_(
-        layer,
-        h / 2, v / 2, # horizontal and vertical offset
-        True,     # if True, creates a stroke
-        False,     # if True, distorts resulting shape to vertical metrics
-        0.0,       # Glyphs 4: -1 = left, 0 = centered, 1 = right
-        None, None, None, 0, 0, 0, True)
+    stroke_layer(layer, h / 2, v / 2, True)
     layer.correctPathDirection()
     rotate_transform = NSAffineTransform.new()
     cx, cy = layer.width / 2, layer.master.capHeight / 2
@@ -237,9 +317,7 @@ def stroke_polyline(layer, points, master_id):
         pen.lineTo(point)
     pen.endPath()
     h, v = master_contrast[master_id]
-    offsetFilter.offsetLayer_offsetX_offsetY_makeStroke_autoStroke_position_metrics_error_shadow_capStyleStart_capStyleEnd_join_keepCompatibleOutlines_(
-        layer, h / 2, v / 2, True, False, 0.0,
-        None, None, None, 0, 0, 0, True)
+    stroke_layer(layer, h / 2, v / 2, True)
     layer.correctPathDirection()
 
 

@@ -73,6 +73,7 @@ Open a font, save a copy, and choose a tool from the menu. Glyph builders genera
 - Empty master layers are filled. Existing artwork is kept for most symbols, but all symbol master layers receive the chosen width and are centered horizontally without scaling.
 - **`less` and `lessequal` are rebuilt on every run**, replacing their master-layer artwork with horizontally mirrored components of `greater` and `greaterequal`.
 - Editing the source shapes updates their mirrored counterparts. Rerun the script after changing spacing-source widths to apply the new widths and reflection positions.
+- Stroke weight follows the stems of each master (Font Info → Masters → Stems): the horizontal stem for horizontal strokes and the vertical stem for vertical ones. A master without stems gets them measured on the classic glyphs: `l`, `I` or `H` (vertical, with `n` as a last resort) and the crossbar of `H` or `hyphen` (horizontal). The source of each value is printed in the Macro Panel. Change `vertical_stem_factor` and `horizontal_stem_factor` at the top of the script to make the symbols lighter or heavier than the stems.
 
 ### Existing glyphs
 
