@@ -5,7 +5,8 @@
 __doc__ = """
 Exports the font in front into a dated release folder, with the same structure as the previous release: 01. Desktop Variable (TTF), 02. Webfont Variable (WOFF2 plus the CSS and HTML sample), 03. Static OTF Files, and 04. Windows TTF, where the fonts go through Windows Font Fix and the four RIBBI styles move to the "01. Windows RIBBI" subfolder.
 The README, CSS and HTML are copied from the previous release folder, with the version line of the README updated to the new folder name.
-Static fonts are autohinted and have overlaps removed; the variable font is not autohinted. Uses the active instances of the font. Never overwrites a non-empty release folder without asking.
+Static fonts are autohinted and have overlaps removed. The variable font is not autohinted and gets the post-export fixes of fix_vf.py (usWeightClass from the default of the weight axis, smart dropout control at the start of prep, WWS bit); its WOFF2 is built from the fixed TTF.
+Uses the active instances of the font. Never overwrites a non-empty release folder without asking.
 """
 
 import importlib.util
@@ -16,8 +17,10 @@ import tempfile
 import time
 
 import vanilla
+from fontTools.ttLib import TTFont, newTable
+from fontTools.ttLib.tables import ttProgram
 from vanilla.dialogs import askYesNo, getFolder
-from GlyphsApp import (Glyphs, Message, INSTANCETYPESINGLE, INSTANCETYPEVARIABLE, OTF, TTF, PLAIN, WOFF2)
+from GlyphsApp import Glyphs, Message, INSTANCETYPESINGLE, INSTANCETYPEVARIABLE, OTF, TTF
 
 TITLE = "Export Release Package"
 DEFAULTS_PREFIX = "com.plau.exportRelease."
@@ -36,9 +39,11 @@ WEB_FONT_EXTENSIONS = (".woff", ".woff2")
 
 # Export settings, as in the previous releases (checked against the 26.10.14 files).
 STATIC_SETTINGS = dict(autoHint=True, removeOverlap=True, useSubroutines=True, useProductionNames=True)
-# The variable font is NOT autohinted on purpose: that is its Windows fix. Without autohint Glyphs writes the minimal
-# TrueType instructions, cvt/cvar and the gasp table that Windows needs to render a variable font well.
+# The variable font is NOT autohinted on purpose: without autohint Glyphs writes the minimal TrueType instructions,
+# cvt/cvar and the gasp table that Windows needs, and fix_variable_font() below finishes the job.
 VARIABLE_SETTINGS = dict(autoHint=False, removeOverlap=False, useSubroutines=True, useProductionNames=True)
+# Smart dropout control (SCANCTRL / SCANTYPE) for the start of the prep program.
+DROPOUT_CONTROL = bytes([0xB8, 0x01, 0xFF, 0x85, 0xB0, 0x04, 0x8D])
 
 GROUPS = ("variable", "web", "otf", "ttf")
 
@@ -94,6 +99,42 @@ def generate_all(instances, fmt, destination, settings, containers=None):
     return errors
 
 
+def fix_variable_font(path):
+    """Post-export fixes of the variable TTF, in place (the logic of the project's fix_vf.py):
+    usWeightClass = default of the wght axis, smart dropout control at the start of prep (and a gasp table if missing),
+    and the WWS bit of fsSelection when the font has no WWS family name (nameID 21)."""
+    font = TTFont(path)
+    if "fvar" in font:
+        for axis in font["fvar"].axes:
+            if axis.axisTag == "wght":
+                font["OS/2"].usWeightClass = int(round(axis.defaultValue))
+    existing = b""
+    if "prep" in font and hasattr(font["prep"], "program"):
+        existing = font["prep"].program.getBytecode()
+    if DROPOUT_CONTROL not in existing:
+        prep = newTable("prep")
+        prep.program = ttProgram.Program()
+        prep.program.fromBytecode(DROPOUT_CONTROL + existing)
+        font["prep"] = prep
+    if "gasp" not in font:
+        gasp = newTable("gasp")
+        gasp.version = 1
+        gasp.gaspRange = {0xFFFF: 0x000F}
+        font["gasp"] = gasp
+    maxp = font["maxp"]
+    if hasattr(maxp, "maxStackElements"):
+        maxp.maxStackElements = max(maxp.maxStackElements, 2)
+    if not font["name"].getName(21, 3, 1, 0x409):
+        font["OS/2"].fsSelection |= 1 << 8
+    font.save(path)
+
+
+def write_woff2(ttf_path, woff2_path):
+    font = TTFont(ttf_path)
+    font.flavor = "woff2"
+    font.save(woff2_path)
+
+
 def font_files(folder, extensions):
     return sorted(n for n in os.listdir(folder) if n.lower().endswith(extensions) and not n.startswith(".")) if os.path.isdir(folder) else []
 
@@ -114,18 +155,19 @@ def export_release(font, release_dir, groups=GROUPS, template_dir=None, label=No
         else:
             temp = tempfile.mkdtemp(prefix="plau-release-")
             try:
-                containers = [PLAIN, WOFF2] if "web" in groups else [PLAIN]
-                problems += generate_all(variable[:1], TTF, temp, VARIABLE_SETTINGS, containers)
-                for name in sorted(os.listdir(temp)):
-                    if name.startswith("."):
-                        continue
-                    target = FOLDER_WEB if name.lower().endswith(WEB_FONT_EXTENSIONS) else FOLDER_VARIABLE
-                    wanted = "web" if target == FOLDER_WEB else "variable"
-                    if wanted not in groups:
-                        continue
-                    os.makedirs(os.path.join(release_dir, target), exist_ok=True)
-                    shutil.move(os.path.join(temp, name), os.path.join(release_dir, target, name))
-                    log("   %s/%s" % (target, name))
+                problems += generate_all(variable[:1], TTF, temp, VARIABLE_SETTINGS)
+                for name in sorted(n for n in os.listdir(temp) if n.lower().endswith(".ttf")):
+                    path = os.path.join(temp, name)
+                    fix_variable_font(path)
+                    if "variable" in groups:
+                        os.makedirs(os.path.join(release_dir, FOLDER_VARIABLE), exist_ok=True)
+                        shutil.copy2(path, os.path.join(release_dir, FOLDER_VARIABLE, name))
+                        log("   %s/%s (fixed)" % (FOLDER_VARIABLE, name))
+                    if "web" in groups:
+                        os.makedirs(os.path.join(release_dir, FOLDER_WEB), exist_ok=True)
+                        woff2_name = os.path.splitext(name)[0] + ".woff2"
+                        write_woff2(path, os.path.join(release_dir, FOLDER_WEB, woff2_name))
+                        log("   %s/%s (from the fixed TTF)" % (FOLDER_WEB, woff2_name))
             finally:
                 shutil.rmtree(temp, ignore_errors=True)
 
