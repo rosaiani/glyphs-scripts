@@ -219,12 +219,23 @@ def _character_tier(codepoint):
     return 3
 
 
+def _best_cmap(font):
+    """The font's best cmap. When the cmap is still untouched, it is read through a temporary table, so the font
+    does not recompile (and rewrite) its cmap when saved."""
+    reader = getattr(font, "reader", None)
+    if reader is not None and "cmap" in reader.tables and "cmap" not in font.tables:
+        table = newTable("cmap")
+        table.decompile(reader["cmap"], font)
+        return table.getBestCmap()
+    return font.getBestCmap()
+
+
 def rank_kern_pairs(font, pairs):
     """Pairs sorted by how likely they are to occur in text (most useful first), then by strength.
     A class kerning font easily expands to 50,000+ glyph pairs, far more than a kern table holds: keeping
     the strongest pairs would favor rare accented capitals, so the pairs between common characters go first."""
     first_codepoint = {}
-    for codepoint, glyph in sorted(font.getBestCmap().items()):
+    for codepoint, glyph in sorted(_best_cmap(font).items()):
         first_codepoint.setdefault(glyph, codepoint)
     tier = lambda glyph: _character_tier(first_codepoint.get(glyph))
     return sorted(pairs.items(), key=lambda item: (
