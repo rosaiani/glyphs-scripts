@@ -25,6 +25,8 @@ WEB_EXTENSIONS = (".woff", ".woff2")
 COPY_FOLDER = "Windows Fix"
 NO_REQUIRED_FEATURE = 0xFFFF
 KERN_MAX_PAIRS = 10920  # a kern subtable stores its length in 16 bits: 6 bytes per pair
+# Characters outside Latin-1 that are common in running text: quotes, dashes, bullet, ellipsis, euro.
+COMMON_PUNCTUATION = {0x2013, 0x2014, 0x2018, 0x2019, 0x201A, 0x201C, 0x201D, 0x201E, 0x2022, 0x2026, 0x2039, 0x203A, 0x20AC}
 
 # Steps run when none are chosen (this is also what a Post-Export Command runs).
 DEFAULT_STEPS = ["winfix", "latn", "rclt2calt", "kerntable"]
@@ -44,7 +46,8 @@ Steps (all on by default):
     rclt2calt   Make 'calt' also reference every 'rclt' lookup (shared, not copied),
                 for apps that apply calt but not rclt. rclt stays as it is.
     kerntable   Build a legacy 'kern' table from the GPOS 'kern' feature (class pairs are
-                expanded to glyph pairs; at most 10920 pairs, the strongest are kept).
+                expanded to glyph pairs; at most 10920 pairs: pairs between the most common
+                characters are kept first, ASCII, then Latin-1 and common punctuation).
                 PowerPoint applies this table more reliably than GPOS kerning.
                 Skipped for variable fonts and fonts that already have a kern table.
                 The GPOS table is not touched.
@@ -203,6 +206,31 @@ def gpos_kern_pairs(font):
     return totals
 
 
+def _character_tier(codepoint):
+    """How common a character is in running text: 0 ASCII, 1 Latin-1 and common punctuation, 2 other Latin and punctuation, 3 the rest."""
+    if codepoint is None:
+        return 3
+    if 0x20 <= codepoint <= 0x7E:
+        return 0
+    if 0xA0 <= codepoint <= 0xFF or codepoint in COMMON_PUNCTUATION:
+        return 1
+    if 0x100 <= codepoint <= 0x24F or 0x2010 <= codepoint <= 0x206F or 0x20A0 <= codepoint <= 0x20CF:
+        return 2
+    return 3
+
+
+def rank_kern_pairs(font, pairs):
+    """Pairs sorted by how likely they are to occur in text (most useful first), then by strength.
+    A class kerning font easily expands to 50,000+ glyph pairs, far more than a kern table holds: keeping
+    the strongest pairs would favor rare accented capitals, so the pairs between common characters go first."""
+    first_codepoint = {}
+    for codepoint, glyph in sorted(font.getBestCmap().items()):
+        first_codepoint.setdefault(glyph, codepoint)
+    tier = lambda glyph: _character_tier(first_codepoint.get(glyph))
+    return sorted(pairs.items(), key=lambda item: (
+        max(tier(item[0][0]), tier(item[0][1])), tier(item[0][0]) + tier(item[0][1]), -abs(item[1]), item[0]))
+
+
 def step_kerntable(font, force=False):
     if "fvar" in font and font["fvar"].axes:
         return "skipped: variable font (a kern table cannot vary)"
@@ -215,9 +243,8 @@ def step_kerntable(font, force=False):
         return "skipped: no kerning in GPOS"
     dropped = 0
     if len(pairs) > KERN_MAX_PAIRS:
-        strongest = sorted(pairs.items(), key=lambda item: (-abs(item[1]), item[0]))[:KERN_MAX_PAIRS]
         dropped = len(pairs) - KERN_MAX_PAIRS
-        pairs = dict(strongest)
+        pairs = dict(rank_kern_pairs(font, pairs)[:KERN_MAX_PAIRS])
     subtable = _k_e_r_n.KernTable_format_0()
     subtable.coverage = 1  # horizontal
     subtable.tupleIndex = None
@@ -226,7 +253,7 @@ def step_kerntable(font, force=False):
     table.version = 0
     table.kernTables = [subtable]
     font["kern"] = table
-    note = ", dropped the %d weakest (the table holds %d)" % (dropped, KERN_MAX_PAIRS) if dropped else ""
+    note = ", dropped %d rarer pairs (the table holds %d)" % (dropped, KERN_MAX_PAIRS) if dropped else ""
     return "added kern table with %d pairs%s" % (len(pairs), note)
 
 
