@@ -4,7 +4,7 @@
 
 __doc__ = """
 Fixes exported TTF/OTF files so Microsoft Office (PowerPoint, Word) shapes them with its full OpenType engine and applies their substitutions.
-Three fixes: an empty fvar table (winfix), a latn script record copied from DFLT in GSUB/GPOS, and calt that also runs every rclt lookup (shared, not copied).
+Four fixes: an empty fvar table (winfix), a latn script record copied from DFLT in GSUB/GPOS, calt that also runs every rclt lookup (shared, not copied), and a legacy kern table built from the GPOS kerning (PowerPoint applies the legacy table more reliably than the GPOS kern feature).
 From the menu: choose the fixes, then the exported fonts. Copies go into a "Windows Fix" folder next to each font unless you choose to overwrite.
 Web fonts (woff, woff2) are never touched, and real variable fonts keep their fvar.
 Also runs from the command line, as a Post-Export Command: python3 "Windows Font Fix.py" font.ttf
@@ -14,8 +14,9 @@ import copy
 import os
 import sys
 
-from fontTools.ttLib import TTFont
+from fontTools.ttLib import TTFont, newTable
 from fontTools.ttLib.tables import _f_v_a_r
+from fontTools.ttLib.tables import _k_e_r_n
 from fontTools.ttLib.tables import otTables as ot
 
 TITLE = "Windows Font Fix"
@@ -23,9 +24,10 @@ FONT_EXTENSIONS = (".ttf", ".otf")
 WEB_EXTENSIONS = (".woff", ".woff2")
 COPY_FOLDER = "Windows Fix"
 NO_REQUIRED_FEATURE = 0xFFFF
+KERN_MAX_PAIRS = 10920  # a kern subtable stores its length in 16 bits: 6 bytes per pair
 
 # Steps run when none are chosen (this is also what a Post-Export Command runs).
-DEFAULT_STEPS = ["winfix", "latn", "rclt2calt"]
+DEFAULT_STEPS = ["winfix", "latn", "rclt2calt", "kerntable"]
 
 USAGE = """
 Windows Font Fix: fixes for exported TTF/OTF fonts, in place (or into --out).
@@ -41,6 +43,11 @@ Steps (all on by default):
     latn        Add a 'latn' script record to GSUB/GPOS (a copy of DFLT) if missing.
     rclt2calt   Make 'calt' also reference every 'rclt' lookup (shared, not copied),
                 for apps that apply calt but not rclt. rclt stays as it is.
+    kerntable   Build a legacy 'kern' table from the GPOS 'kern' feature (class pairs are
+                expanded to glyph pairs; at most 10920 pairs, the strongest are kept).
+                PowerPoint applies this table more reliably than GPOS kerning.
+                Skipped for variable fonts and fonts that already have a kern table.
+                The GPOS table is not touched.
 
 Options:
     -s, --steps a,b,c   Run only these steps (e.g. -s latn,rclt2calt)
@@ -48,7 +55,7 @@ Options:
     -o, --out DIR       Save fixed fonts into DIR instead of overwriting
     -n, --dry-run       Report what would change, save nothing
     -r, --report        Print scripts, features and lookups of each font, change nothing
-    -f, --force         winfix: replace an existing fvar table (careful with variable fonts)
+    -f, --force         winfix / kerntable: replace an existing fvar / kern table (careful with variable fonts)
     -h, --help          Show this help and exit
 
 Web fonts (.woff, .woff2) are never touched. Needs fontTools: pip3 install fonttools
@@ -146,10 +153,88 @@ def step_rclt2calt(font, force=False):
     return "created calt with rclt lookups %s" % rclt_lookups
 
 
+def _pair_subtables(lookup):
+    """PairPos subtables of a GPOS lookup, unwrapping extension lookups."""
+    for subtable in lookup.SubTable:
+        real = getattr(subtable, "ExtSubTable", subtable)
+        if getattr(real, "LookupType", None) == 2:
+            yield real
+
+
+def _x_advance(value):
+    return int(getattr(value, "XAdvance", 0) or 0) if value is not None else 0
+
+
+def gpos_kern_pairs(font):
+    """{(left glyph, right glyph): value} from the lookups of the GPOS 'kern' feature.
+    Class pairs are expanded to glyph pairs; inside a lookup the first matching subtable wins and
+    several lookups add up, as in shaping. Pairs with 'any other glyph' (class 0) cannot be expanded and are ignored."""
+    gpos = font["GPOS"].table
+    if not gpos.FeatureList or not gpos.LookupList:
+        return {}
+    lookup_indices = sorted({i for fr in gpos.FeatureList.FeatureRecord if fr.FeatureTag == "kern" for i in fr.Feature.LookupListIndex})
+    totals = {}
+    for index in lookup_indices:
+        seen = set()
+        for subtable in _pair_subtables(gpos.LookupList.Lookup[index]):
+            if subtable.Format == 1:
+                for left, pair_set in zip(subtable.Coverage.glyphs, subtable.PairSet):
+                    for record in pair_set.PairValueRecord:
+                        key = (left, record.SecondGlyph)
+                        if key not in seen:
+                            seen.add(key)
+                            totals[key] = totals.get(key, 0) + _x_advance(record.Value1)
+            elif subtable.Format == 2:
+                left_classes = subtable.ClassDef1.classDefs if subtable.ClassDef1 else {}
+                members = {}
+                for glyph, cls in (subtable.ClassDef2.classDefs if subtable.ClassDef2 else {}).items():
+                    members.setdefault(cls, []).append(glyph)
+                for left in subtable.Coverage.glyphs:
+                    row = subtable.Class1Record[left_classes.get(left, 0)]
+                    for cls, record in enumerate(row.Class2Record):
+                        if cls == 0:
+                            continue
+                        value = _x_advance(record.Value1)
+                        for right in members.get(cls, ()):
+                            key = (left, right)
+                            if key not in seen:
+                                seen.add(key)
+                                totals[key] = totals.get(key, 0) + value
+    return totals
+
+
+def step_kerntable(font, force=False):
+    if "fvar" in font and font["fvar"].axes:
+        return "skipped: variable font (a kern table cannot vary)"
+    if "kern" in font and not force:
+        return "skipped: kern table already present"
+    if "GPOS" not in font:
+        return "skipped: no GPOS"
+    pairs = {k: max(-32768, min(32767, v)) for k, v in gpos_kern_pairs(font).items() if v}
+    if not pairs:
+        return "skipped: no kerning in GPOS"
+    dropped = 0
+    if len(pairs) > KERN_MAX_PAIRS:
+        strongest = sorted(pairs.items(), key=lambda item: (-abs(item[1]), item[0]))[:KERN_MAX_PAIRS]
+        dropped = len(pairs) - KERN_MAX_PAIRS
+        pairs = dict(strongest)
+    subtable = _k_e_r_n.KernTable_format_0()
+    subtable.coverage = 1  # horizontal
+    subtable.tupleIndex = None
+    subtable.kernTable = pairs
+    table = newTable("kern")
+    table.version = 0
+    table.kernTables = [subtable]
+    font["kern"] = table
+    note = ", dropped the %d weakest (the table holds %d)" % (dropped, KERN_MAX_PAIRS) if dropped else ""
+    return "added kern table with %d pairs%s" % (len(pairs), note)
+
+
 STEPS = {
     "winfix": step_winfix,
     "latn": step_latn,
     "rclt2calt": step_rclt2calt,
+    "kerntable": step_kerntable,
 }
 
 
@@ -283,7 +368,7 @@ def main_glyphs():
 
     class WindowsFontFixWindow(object):
         def __init__(self):
-            self.w = vanilla.FloatingWindow((380, 270), TITLE)
+            self.w = vanilla.FloatingWindow((380, 294), TITLE)
             self.w.intro = vanilla.TextBox(
                 (15, 12, -15, 34),
                 "Fixes exported TTF/OTF files so PowerPoint and Word apply their OpenType substitutions.",
@@ -294,6 +379,7 @@ def main_glyphs():
                 ("winfix", "Empty fvar (Office full shaping)", "Adds an empty fvar table so Microsoft Office shapes the font with its full OpenType engine. Skipped for real variable fonts."),
                 ("latn", "Add latn script record", "Copies the DFLT script of GSUB/GPOS into a latn record when there is none."),
                 ("rclt2calt", "calt also runs the rclt lookups", "Makes calt reference every rclt lookup (shared, not copied), for apps that apply calt but not rclt."),
+                ("kerntable", "Legacy kern table (kerning in PowerPoint)", "Builds a legacy kern table from the GPOS kerning, which PowerPoint applies more reliably. Skipped for variable fonts. GPOS is not touched."),
             )
             for key, label, tip in labels:
                 box = vanilla.CheckBox((15, y, -15, 20), label, value=True)
