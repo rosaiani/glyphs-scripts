@@ -23,6 +23,7 @@ TITLE = "Windows Font Fix"
 FONT_EXTENSIONS = (".ttf", ".otf")
 WEB_EXTENSIONS = (".woff", ".woff2")
 COPY_FOLDER = "Windows Fix"
+DEFAULTS_PREFIX = "com.plau.windowsFontFix."  # where the menu window remembers its choices (Glyphs.defaults)
 NO_REQUIRED_FEATURE = 0xFFFF
 KERN_MAX_PAIRS = 10920  # a kern subtable stores its length in 16 bits: 6 bytes per pair
 # Characters outside Latin-1 that are common in running text: quotes, dashes, bullet, ellipsis, euro.
@@ -417,10 +418,10 @@ def main_glyphs():
                 ("winfix", "Empty fvar (Office full shaping)", "Adds an empty fvar table so Microsoft Office shapes the font with its full OpenType engine. Skipped for real variable fonts."),
                 ("latn", "Add latn script record", "Copies the DFLT script of GSUB/GPOS into a latn record when there is none."),
                 ("rclt2calt", "calt also runs the rclt lookups", "Makes calt reference every rclt lookup (shared, not copied), for apps that apply calt but not rclt."),
-                ("kerntable", "Legacy kern table (kerning in PowerPoint)", "Builds a legacy kern table from the GPOS kerning, which PowerPoint applies more reliably. Skipped for variable fonts. GPOS is not touched."),
+                ("kerntable", "Kerning for PowerPoint (legacy kern table)", "Builds a legacy kern table from the GPOS kerning: PowerPoint ignores GPOS kerning but applies this table. It holds at most 10,920 pairs, so the pairs between the most common characters go first. Skipped for variable fonts. GPOS is not touched. Untick it if you do not want a kern table."),
             )
             for key, label, tip in labels:
-                box = vanilla.CheckBox((15, y, -15, 20), label, value=True)
+                box = vanilla.CheckBox((15, y, -15, 20), label, value=self.stored(key, True), callback=self.remember)
                 box.getNSButton().setToolTip_(tip)
                 setattr(self.w, "step_" + key, box)
                 self.boxes[key] = box
@@ -429,8 +430,8 @@ def main_glyphs():
             self.w.saveLabel = vanilla.TextBox((15, y, -15, 18), "Save:")
             y += 22
             self.w.mode = vanilla.RadioGroup(
-                (15, y, -15, 40), ["Copies in a “%s” folder next to each font" % COPY_FOLDER, "Overwrite the originals"], callback=None)
-            self.w.mode.set(0)
+                (15, y, -15, 40), ["Copies in a “%s” folder next to each font" % COPY_FOLDER, "Overwrite the originals"], callback=self.remember)
+            self.w.mode.set(1 if self.stored("overwrite", False) else 0)
             y += 52
             self.w.report = vanilla.Button((15, y, 110, 22), "Report…", callback=self.report)
             self.w.report.getNSButton().setToolTip_("Prints scripts, features and lookups of the fonts you choose. Changes nothing.")
@@ -439,6 +440,17 @@ def main_glyphs():
             self.w.setDefaultButton(self.w.fix)
             self.w.open()
             self.w.makeKey()
+
+        @staticmethod
+        def stored(key, default):
+            value = Glyphs.defaults[DEFAULTS_PREFIX + key]
+            return default if value is None else bool(value)
+
+        def remember(self, sender):
+            """Keep the choices for the next time the window opens."""
+            for key, box in self.boxes.items():
+                Glyphs.defaults[DEFAULTS_PREFIX + key] = bool(box.get())
+            Glyphs.defaults[DEFAULTS_PREFIX + "overwrite"] = self.w.mode.get() == 1
 
         def chosen_steps(self):
             return [k for k in DEFAULT_STEPS if self.boxes[k].get()]
