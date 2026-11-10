@@ -33,8 +33,9 @@ FOLDER_TTF = "04. Windows TTF"
 FOLDER_RIBBI = "01. Windows RIBBI"
 README_NAME = "README.txt"
 
-RELEASE_NAME = re.compile(r"^\d{2}\.\d{2}\.\d{2}$")   # yy.mm.dd
+RELEASE_NAME = re.compile(r"^[^/\\:*?\"<>|\s.][^/\\:*?\"<>|]*$")   # any valid folder name; the default is yy.mm.dd
 VERSION_LINE = re.compile(r"Version \d{2}\.\d{2}\.\d{2}")
+RIBBI_STYLES = ("Regular", "Italic", "Bold", "Bold Italic")
 WEB_FONT_EXTENSIONS = (".woff", ".woff2")
 
 # Export settings, as in the previous releases (checked against the 26.10.14 files).
@@ -62,12 +63,22 @@ def load_windows_font_fix():
     return module
 
 
+def is_release_folder(path):
+    """A folder that looks like a release: it holds one of the release subfolders or a README."""
+    if not os.path.isdir(path):
+        return False
+    known = (FOLDER_VARIABLE, FOLDER_WEB, FOLDER_OTF, FOLDER_TTF)
+    return any(os.path.isdir(os.path.join(path, n)) for n in known) or os.path.exists(os.path.join(path, README_NAME))
+
+
 def previous_releases(output_dir, exclude=None):
-    """Release folders (yy.mm.dd) in the output folder, newest first."""
+    """Release folders in the output folder (whatever their names), newest first."""
     if not output_dir or not os.path.isdir(output_dir):
         return []
-    names = [n for n in os.listdir(output_dir) if RELEASE_NAME.match(n) and n != exclude and os.path.isdir(os.path.join(output_dir, n))]
-    return sorted(names, reverse=True)
+    paths = [os.path.join(output_dir, n) for n in os.listdir(output_dir) if not n.startswith(".") and n != exclude]
+    paths = [p for p in paths if is_release_folder(p)]
+    paths.sort(key=lambda p: (os.path.basename(p), os.path.getmtime(p)), reverse=True)
+    return [os.path.basename(p) for p in paths]
 
 
 def default_output_dir(font):
@@ -98,8 +109,11 @@ def generate_all(instances, fmt, destination, settings, containers=None):
         arguments = dict(settings)
         if containers:
             arguments["containers"] = containers
-        result = instance.generate(format=fmt, fontPath=destination, **arguments)
-        if result:
+        try:
+            result = instance.generate(format=fmt, fontPath=destination, **arguments)
+        except Exception as e:
+            result = "%s: %s" % (type(e).__name__, e)
+        if result and result is not True:
             errors.append("%s: %s" % (instance.name, result))
     return errors
 
@@ -108,8 +122,8 @@ def fix_variable_font(path):
     """Post-export fixes of the variable TTF, in place (the logic of the project's fix_vf.py):
     usWeightClass = default of the wght axis, smart dropout control at the start of prep (and a gasp table if missing),
     and the WWS bit of fsSelection when the font has no WWS family name (nameID 21)."""
-    font = TTFont(path)
-    if "fvar" in font:
+    font = TTFont(path, recalcTimestamp=False)
+    if "fvar" in font and "OS/2" in font:
         for axis in font["fvar"].axes:
             if axis.axisTag == "wght":
                 font["OS/2"].usWeightClass = int(round(axis.defaultValue))
@@ -129,7 +143,7 @@ def fix_variable_font(path):
     maxp = font["maxp"]
     if hasattr(maxp, "maxStackElements"):
         maxp.maxStackElements = max(maxp.maxStackElements, 2)
-    if not font["name"].getName(21, 3, 1, 0x409):
+    if "OS/2" in font and not font["name"].getName(21, 3, 1, 0x409):
         font["OS/2"].fsSelection |= 1 << 8
     font.save(path)
 
@@ -137,7 +151,7 @@ def fix_variable_font(path):
 def write_woff2(ttf_path, woff2_path):
     font = TTFont(ttf_path)
     font.flavor = "woff2"
-    font.save(woff2_path)
+    font.save(woff2_path)   # needs the brotli module
 
 
 def font_files(folder, extensions):
@@ -160,10 +174,13 @@ def export_release(font, release_dir, groups=GROUPS, template_dir=None, label=No
         else:
             temp = tempfile.mkdtemp(prefix="plau-release-")
             try:
-                problems += generate_all(variable[:1], TTF, temp, VARIABLE_SETTINGS)
+                problems += generate_all(variable, TTF, temp, VARIABLE_SETTINGS)
                 for name in sorted(n for n in os.listdir(temp) if n.lower().endswith(".ttf")):
                     path = os.path.join(temp, name)
-                    fix_variable_font(path)
+                    try:
+                        fix_variable_font(path)
+                    except Exception as e:
+                        problems.append("%s: the variable font fixes failed (%s: %s)" % (name, type(e).__name__, e))
                     if "variable" in groups:
                         os.makedirs(os.path.join(release_dir, FOLDER_VARIABLE), exist_ok=True)
                         shutil.copy2(path, os.path.join(release_dir, FOLDER_VARIABLE, name))
@@ -171,10 +188,17 @@ def export_release(font, release_dir, groups=GROUPS, template_dir=None, label=No
                     if "web" in groups:
                         os.makedirs(os.path.join(release_dir, FOLDER_WEB), exist_ok=True)
                         woff2_name = os.path.splitext(name)[0] + ".woff2"
-                        write_woff2(path, os.path.join(release_dir, FOLDER_WEB, woff2_name))
-                        log("   %s/%s (from the fixed TTF)" % (FOLDER_WEB, woff2_name))
+                        try:
+                            write_woff2(path, os.path.join(release_dir, FOLDER_WEB, woff2_name))
+                            log("   %s/%s (from the fixed TTF)" % (FOLDER_WEB, woff2_name))
+                        except Exception as e:
+                            problems.append("%s: WOFF2 failed (%s: %s)" % (woff2_name, type(e).__name__, e))
             finally:
                 shutil.rmtree(temp, ignore_errors=True)
+
+    if ("otf" in groups or "ttf" in groups) and not static:
+        log("   no active static instance: skipped the OTF and TTF folders")
+        groups = tuple(g for g in groups if g not in ("otf", "ttf"))
 
     if "otf" in groups:
         folder = os.path.join(release_dir, FOLDER_OTF)
@@ -207,9 +231,12 @@ def fix_windows_fonts(folder, log=print):
     ribbi = []
     for path in paths:
         names = fix.TTFont(path)["name"]
-        family, typographic = names.getDebugName(1), names.getDebugName(16)
-        if typographic and family == typographic:
+        family, typographic, style = names.getDebugName(1), names.getDebugName(16), names.getDebugName(2)
+        # RIBBI = a plain Regular/Italic/Bold/Bold Italic that sits in the family named by nameID 1 (no wider or lighter family name)
+        if style in RIBBI_STYLES and (not typographic or typographic == family):
             ribbi.append(path)
+    if len(ribbi) == len(paths):
+        ribbi = []   # a family made only of RIBBI styles needs no subfolder
     if ribbi:
         target = os.path.join(folder, FOLDER_RIBBI)
         os.makedirs(target, exist_ok=True)
@@ -221,14 +248,20 @@ def fix_windows_fonts(folder, log=print):
 
 def copy_template_files(template_dir, release_dir, label, groups, log=print):
     """README (with the version line updated) and the non-font files of the web folder, from the previous release."""
-    readme = os.path.join(template_dir, README_NAME)
-    if os.path.exists(readme):
-        with open(readme, encoding="utf-8") as fh:
-            text = fh.read()
-        text = VERSION_LINE.sub("Version " + label, text, count=1)
-        with open(os.path.join(release_dir, README_NAME), "w", encoding="utf-8") as fh:
-            fh.write(text)
-        log("   %s (version line: %s)" % (README_NAME, label))
+    for name in sorted(os.listdir(template_dir)):
+        source = os.path.join(template_dir, name)
+        if name.startswith(".") or not os.path.isfile(source):
+            continue
+        if name.lower().startswith("readme") and name.lower().endswith((".txt", ".md")):
+            with open(source, encoding="utf-8") as fh:
+                text = fh.read()
+            text = VERSION_LINE.sub("Version " + label, text, count=1)
+            with open(os.path.join(release_dir, name), "w", encoding="utf-8") as fh:
+                fh.write(text)
+            log("   %s (version line: %s)" % (name, label))
+        else:
+            shutil.copy2(source, os.path.join(release_dir, name))
+            log("   %s (copied from %s)" % (name, os.path.basename(template_dir)))
     web = os.path.join(template_dir, FOLDER_WEB)
     if "web" in groups and os.path.isdir(web):
         os.makedirs(os.path.join(release_dir, FOLDER_WEB), exist_ok=True)
@@ -341,7 +374,7 @@ class ExportReleaseWindow(object):
     def export(self, sender):
         label = self.w.label.get().strip()
         if not RELEASE_NAME.match(label):
-            Message("The release folder name should look like 26.10.26 (yy.mm.dd).", TITLE)
+            Message("Enter a name for the release folder, such as 26.10.26 (yy.mm.dd). It cannot contain / \\ : * ? \" < > |.", TITLE)
             return
         if not self.output_dir:
             Message("Choose the output folder first.", TITLE)
@@ -367,8 +400,6 @@ def main():
     font = Glyphs.font
     if font is None:
         raise RuntimeError("Open a font before running this script.")
-    if not font.filepath:
-        raise RuntimeError("Save the font first: the output folder is looked up next to its file.")
     return ExportReleaseWindow(font)
 
 
