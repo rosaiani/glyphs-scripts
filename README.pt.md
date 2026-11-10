@@ -43,7 +43,7 @@ Scripts/
     │   ├── Export Release Package.py
     │   ├── Windows Font Fix.py
     │   └── windows-font-fix.sh
-    ├── Reporter Tab/
+    ├── Reporters/
     │   └── Open Tab with G2 Nodes.py
     └── Spacing/
         └── Set Diacritics Sidebearings.py
