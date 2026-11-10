@@ -72,8 +72,13 @@ def previous_releases(output_dir, exclude=None):
 
 def default_output_dir(font):
     stored = Glyphs.defaults[DEFAULTS_PREFIX + "outputDir"]
+    if stored is not None and not isinstance(stored, str):
+        try:
+            stored = str(stored[0]) if hasattr(stored, "__getitem__") and len(stored) else str(stored)
+        except Exception:
+            stored = ""
     if stored and os.path.isdir(stored):
-        return stored
+        return str(stored)
     if font is not None and font.filepath:
         candidate = os.path.join(os.path.dirname(font.filepath), "Output")
         if os.path.isdir(candidate):
@@ -249,6 +254,7 @@ def summary(font, release_dir):
 
 
 def run_export(font, output_dir, label, groups, template_name, log=print):
+    output_dir, label = str(output_dir), str(label)
     release_dir = os.path.join(output_dir, label)
     if os.path.isdir(release_dir) and os.listdir(release_dir) and any(not n.startswith(".") for n in os.listdir(release_dir)):
         if not askYesNo("The folder %s is not empty. Export into it anyway? Files with the same name are replaced." % label, title=TITLE):
@@ -318,7 +324,9 @@ class ExportReleaseWindow(object):
     def choose_output(self, sender):
         folder = getFolder(messageText="Choose the folder that holds the release folders (the Output folder)", directory=self.output_dir or None)
         if folder:
-            self.output_dir = folder[0] if isinstance(folder, (list, tuple)) else folder
+            # getFolder returns an NSArray (not a list/tuple) of paths
+            first = folder if isinstance(folder, str) else folder[0]
+            self.output_dir = str(first)
             self.w.outPath.set(self.output_dir)
             Glyphs.defaults[DEFAULTS_PREFIX + "outputDir"] = self.output_dir
             self.refresh_templates()
