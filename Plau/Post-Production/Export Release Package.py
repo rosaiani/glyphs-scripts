@@ -257,7 +257,7 @@ def run_export(font, output_dir, label, groups, template_name, log=print):
     output_dir, label = str(output_dir), str(label)
     release_dir = os.path.join(output_dir, label)
     if os.path.isdir(release_dir) and os.listdir(release_dir) and any(not n.startswith(".") for n in os.listdir(release_dir)):
-        if not askYesNo("The folder %s is not empty. Export into it anyway? Files with the same name are replaced." % label, title=TITLE):
+        if not askYesNo("The folder %s is not empty. Export into it anyway?" % label, informativeText="Files with the same name are replaced."):
             log("Cancelled: %s is not empty." % label)
             return None
     log("Exporting %s → %s" % (font.familyName, release_dir))
