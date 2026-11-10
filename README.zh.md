@@ -37,7 +37,8 @@ Scripts/
     ├── Font Info/
     │   └── Font Info Launch.py
     ├── Paths/
-    │   └── Create Centerline.py
+    │   ├── Create Centerline.py
+    │   └── Propagate G2 Nodes to All Masters.py
     ├── Post-Production/
     │   ├── Export Release Package.py
     │   ├── Windows Font Fix.py
@@ -71,6 +72,7 @@ Scripts/
 | **Windows Font Fix** | 导出的 TTF/OTF 字体（在文件对话框中选择，或通过命令行传入） | 修复导出的字体，使 Microsoft Office（PowerPoint、Word）能够应用其 OpenType 替换：添加空的 `fvar` 表，在 GSUB/GPOS 中添加从 `DFLT` 复制的 `latn` 脚本记录，让 `calt` 同时运行所有 `rclt` 查找（共享，而非复制），并根据 GPOS 的字距调整生成旧式 `kern` 表（类对会展开为字形对，最多 10,920 对，优先保留常用字符（先是 ASCII，再是 Latin-1 和常用标点）之间的字距对；可变字体会跳过）。据报告，PowerPoint 应用这种旧式表比应用 GPOS 的 `kern` 特性更可靠。会打开一个窗口，每项修复一个复选框（包括可选择不生成 `kern` 表的 **Kerning for PowerPoint**；你的选择会被记住）并用于选择字体；除非选择覆盖，否则副本会保存在每个字体旁边的“Windows Fix”文件夹中。网页字体（`woff`、`woff2`）绝不会被改动，真正的可变字体会保留其 `fvar`。也可以通过命令行运行，或作为 Glyphs 的 Post-Export Command 运行（见下文）。 |
 | **Export Release Package** | 最前面的字体（已保存）、其活动实例，以及上一个发布文件夹 | 把字体导出到带日期的发布文件夹（`yy.mm.dd`），结构与上一个发布相同：`01. Desktop Variable`（可变 TTF）、`02. Webfont Variable (Recommended)`（可变 WOFF2，加上 CSS 和 HTML 示例）、`03. Static OTF Files` 和 `04. Windows TTF`；最后一个文件夹中的字体会经过 Windows Font Fix，四个 RIBBI 样式会移入 `01. Windows RIBBI`。README、CSS 和 HTML 从上一个发布复制，README 的版本行会更新为新文件夹的名称。静态字体会做自动 hinting 并移除重叠；可变字体特意不做自动 hinting，而是应用项目中 `fix_vf.py` 的导出后修正（让 `usWeightClass` 等于字重轴的默认值，在 `prep` 开头加入智能掉点控制，并设置 WWS 位），其 WOFF2 由修正后的 TTF 生成。每个文件夹有一个复选框（会被记住），向非空的发布文件夹写入之前会先询问。 |
 | **Open Tab with G2 Nodes** | 已打开的字体 | 在新标签页中打开在任意主板或特殊图层中至少有一个 G2（星形）节点的所有字形，并输出每个字形的 G2 节点数量。不检查组件内部的路径。 |
+| **Propagate G2 Nodes to All Masters** | 每个所选字形当前查看的图层，其中含有 G2（星形）节点 | 打开一个带有 **Propagate G2 Nodes** 按钮和 **Include special layers**（brace、bracket、备份）复选框的小窗口。把所选图层中的 G2 节点，按路径编号和节点编号对应，设为所有其他主板中的 G2 节点。路径、节点或节点类型与源图层不同的图层会被跳过并列出。只会添加 G2 节点，不会把它改回平滑或尖角。 |
 
 ### Basic Math 的行为
 

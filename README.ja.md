@@ -37,7 +37,8 @@ Scripts/
     ├── Font Info/
     │   └── Font Info Launch.py
     ├── Paths/
-    │   └── Create Centerline.py
+    │   ├── Create Centerline.py
+    │   └── Propagate G2 Nodes to All Masters.py
     ├── Post-Production/
     │   ├── Export Release Package.py
     │   ├── Windows Font Fix.py
@@ -71,6 +72,7 @@ Scripts/
 | **Windows Font Fix** | 書き出した TTF/OTF フォント（ファイルダイアログで選択、またはコマンドラインで指定） | 書き出したフォントを修正し、Microsoft Office（PowerPoint、Word）が OpenType の置換を適用するようにします。空の `fvar` テーブルの追加、GSUB/GPOS の `DFLT` から複製した `latn` スクリプトレコードの追加、`calt` が `rclt` のすべてのルックアップも実行するようにする設定（コピーではなく共有）、そして GPOS のカーニングから従来形式の `kern` テーブルを作成する処理（クラスペアはグリフペアに展開、最大 10,920 ペアで、よく使われる文字同士のペア（ASCII、次に Latin-1 と一般的な句読点）を優先して残し、バリアブルフォントでは行いません）を行います。PowerPoint は GPOS の `kern` フィーチャより、この従来のテーブルを確実に適用するとされています。修正ごとのチェックボックス（`kern` テーブルを作らない選択もできる **Kerning for PowerPoint** を含み、選択内容は記憶されます）とフォント選択のあるウィンドウを開き、上書きを選ばない限り、各フォントの隣の「Windows Fix」フォルダにコピーを保存します。Web フォント（`woff`、`woff2`）には一切触れず、本物のバリアブルフォントは `fvar` を保持します。コマンドラインや Glyphs の Post-Export Command としても実行できます（下記参照）。 |
 | **Export Release Package** | 前面のフォント（保存済み）、そのアクティブなインスタンス、前回のリリースフォルダ | フォントを、前回のリリースと同じ構成の日付付きリリースフォルダ（`yy.mm.dd`）に書き出します。構成は `01. Desktop Variable`（バリアブル TTF）、`02. Webfont Variable (Recommended)`（バリアブル WOFF2 と CSS・HTML のサンプル）、`03. Static OTF Files`、`04. Windows TTF` で、最後のフォルダではフォントが Windows Font Fix を通り、4 つの RIBBI スタイルは `01. Windows RIBBI` に移されます。README、CSS、HTML は前回のリリースからコピーされ、README のバージョン行は新しいフォルダ名に更新されます。スタティックフォントはオートヒントが適用されオーバーラップが除去されます。バリアブルフォントには意図的にオートヒントを適用せず、プロジェクトの `fix_vf.py` による書き出し後の修正（`usWeightClass` をウェイト軸のデフォルト値に合わせる、`prep` の先頭にスマートドロップアウト制御を追加、WWS ビット）を適用し、WOFF2 は修正後の TTF から作成されます。フォルダごとのチェックボックス（記憶されます）があり、空でないリリースフォルダに書き込む前に確認します。 |
 | **Open Tab with G2 Nodes** | 開いているフォント | 任意のマスターまたは特殊レイヤーに G2（スター）ノードを1つ以上持つグリフをすべて新しいタブで開き、各グリフの G2 ノード数を出力します。コンポーネント内のパスは対象外です。 |
+| **Propagate G2 Nodes to All Masters** | 選択した各グリフで表示中のレイヤー（G2（スター）ノードを含むもの） | **Propagate G2 Nodes** ボタンと **Include special layers**（brace、bracket、バックアップ）チェックボックスの小さなウインドウを開きます。選択中のレイヤーで G2 になっているノードを、パス番号とノード番号で対応づけて、他のすべてのマスターで G2 ノードにします。パス、ノード、ノードタイプがソースと異なるレイヤーはスキップして一覧表示します。G2 ノードを追加するだけで、スムーズやシャープに戻すことはありません。 |
 
 ### Basic Math の動作
 

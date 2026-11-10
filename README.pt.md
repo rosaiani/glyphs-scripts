@@ -37,7 +37,8 @@ Scripts/
     ├── Font Info/
     │   └── Font Info Launch.py
     ├── Paths/
-    │   └── Create Centerline.py
+    │   ├── Create Centerline.py
+    │   └── Propagate G2 Nodes to All Masters.py
     ├── Post-Production/
     │   ├── Export Release Package.py
     │   ├── Windows Font Fix.py
@@ -71,6 +72,7 @@ Abra uma fonte, salve uma cópia e escolha uma ferramenta no menu. Os construtor
 | **Windows Font Fix** | Fontes TTF/OTF exportadas, escolhidas numa janela de arquivos (ou passadas na linha de comando) | Corrige fontes exportadas para que o Microsoft Office (PowerPoint, Word) aplique suas substituições OpenType: adiciona uma tabela `fvar` vazia, adiciona um registro de script `latn` copiado de `DFLT` em GSUB/GPOS, faz o `calt` executar também todos os lookups do `rclt` (compartilhados, não copiados) e cria uma tabela `kern` legada a partir do kerning do GPOS (os pares de classes são expandidos em pares de glifos, no máximo 10.920 pares, mantendo primeiro os pares entre os caracteres mais comuns (ASCII, depois Latin-1 e pontuação comum); ignorada em fontes variáveis), que o PowerPoint costuma aplicar com mais confiabilidade que a feature `kern` do GPOS. Abre uma janela com uma caixa para cada correção (incluindo **Kerning for PowerPoint**, para você poder dispensar a tabela kern; suas escolhas são lembradas) e a seleção das fontes; as cópias vão para uma pasta “Windows Fix” ao lado de cada fonte, a menos que você escolha sobrescrever. Fontes web (`woff`, `woff2`) nunca são alteradas e fontes variáveis reais mantêm o seu `fvar`. Também roda pela linha de comando e como Post-Export Command do Glyphs (veja abaixo). |
 | **Export Release Package** | A fonte em primeiro plano (salva), suas instâncias ativas e a pasta da versão anterior | Exporta a fonte para uma pasta de release com data (`aa.mm.dd`), com a estrutura do release anterior: `01. Desktop Variable` (TTF variável), `02. Webfont Variable (Recommended)` (WOFF2 variável mais a amostra em CSS e HTML), `03. Static OTF Files` e `04. Windows TTF`, onde as fontes passam pelo Windows Font Fix e os quatro estilos RIBBI vão para `01. Windows RIBBI`. O README, o CSS e o HTML são copiados do release anterior, com a linha de versão do README atualizada para o nome da nova pasta. As fontes estáticas recebem autohint e têm as sobreposições removidas; a fonte variável deliberadamente não recebe autohint e passa pelas correções pós-exportação do `fix_vf.py` do projeto (`usWeightClass` igual ao padrão do eixo de peso, controle de dropout no início do `prep` e o bit WWS), e o WOFF2 é gerado a partir do TTF corrigido. Uma caixa por pasta (lembrada), e ele pergunta antes de gravar numa pasta de release que não esteja vazia. |
 | **Open Tab with G2 Nodes** | Uma fonte aberta | Abre uma nova aba com todos os glifos que têm pelo menos um nó G2 (estrela) em qualquer master ou camada especial, e imprime quantos nós G2 cada glifo tem. Os contornos dentro de componentes não são verificados. |
+| **Propagate G2 Nodes to All Masters** | A camada visível de cada glifo selecionado, com nós G2 (estrela) | Abre uma janela pequena com **Propagate G2 Nodes** e a caixa **Include special layers** (brace, bracket, backups). Transforma os nós que são G2 na camada selecionada em nós G2 em todos os outros masters, associando os nós pelo número do contorno e do nó. As camadas cujos contornos, nós ou tipos de nó diferem da origem são ignoradas e listadas. Só adiciona nós G2; nunca volta um nó a suave ou a ponto de canto. |
 
 ### Comportamento do Basic Math
 

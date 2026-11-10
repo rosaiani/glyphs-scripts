@@ -37,7 +37,8 @@ Scripts/
     ├── Font Info/
     │   └── Font Info Launch.py
     ├── Paths/
-    │   └── Create Centerline.py
+    │   ├── Create Centerline.py
+    │   └── Propagate G2 Nodes to All Masters.py
     ├── Post-Production/
     │   ├── Export Release Package.py
     │   ├── Windows Font Fix.py
@@ -71,6 +72,7 @@ Open a font, save a copy, and choose a tool from the menu. Glyph builders genera
 | **Windows Font Fix** | Exported TTF/OTF fonts, chosen in a file dialog (or passed on the command line) | Fixes exported fonts so Microsoft Office (PowerPoint, Word) applies their OpenType substitutions: adds an empty `fvar` table, adds a `latn` script record copied from `DFLT` in GSUB/GPOS, makes `calt` also run every `rclt` lookup (shared, not copied), and builds a legacy `kern` table from the GPOS kerning (class pairs are expanded to glyph pairs; at most 10,920 pairs, keeping first the pairs between the most common characters (ASCII, then Latin-1 and common punctuation); skipped for variable fonts), which PowerPoint is reported to apply more reliably than the GPOS `kern` feature. Opens a window with a checkbox per fix (including **Kerning for PowerPoint**, so you can leave the kern table out; your choices are remembered) and a file picker; copies go into a “Windows Fix” folder next to each font unless you choose to overwrite. Web fonts (`woff`, `woff2`) are never touched and real variable fonts keep their `fvar`. Also runs from the command line and as a Glyphs Post-Export Command (see below). |
 | **Export Release Package** | The font in front (saved), its active instances, and the previous release folder | Exports the font into a dated release folder (`yy.mm.dd`) with the structure of the previous release: `01. Desktop Variable` (variable TTF), `02. Webfont Variable (Recommended)` (variable WOFF2 plus the CSS and HTML sample), `03. Static OTF Files`, and `04. Windows TTF`, where the fonts go through Windows Font Fix and the four RIBBI styles move into `01. Windows RIBBI`. The README, CSS and HTML are copied from the previous release, with the version line of the README updated to the new folder name. Static fonts are autohinted with overlaps removed; the variable font is deliberately not autohinted and gets the post-export fixes of the project’s `fix_vf.py` (`usWeightClass` from the default of the weight axis, smart dropout control at the start of `prep`, the WWS bit), and its WOFF2 is built from the fixed TTF. A checkbox per folder (remembered), and it asks before writing into a non-empty release folder. |
 | **Open Tab with G2 Nodes** | An open font | Opens a new tab with every glyph that has at least one G2 (star) node in any master or special layer, and prints how many G2 nodes each glyph has. Paths inside components are not checked. |
+| **Propagate G2 Nodes to All Masters** | The layer you are looking at in each selected glyph, with G2 (star) nodes | Opens a small window with **Propagate G2 Nodes** and an **Include special layers** checkbox (brace, bracket, backups). Turns the nodes that are G2 in the selected layer into G2 nodes in every other master, matching nodes by path and node number. Layers whose paths, nodes or node types differ from the source are skipped and listed. It only adds G2 nodes; it never changes one back to smooth or sharp. |
 
 ### Basic Math behavior
 
