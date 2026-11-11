@@ -148,16 +148,15 @@ def particle_combinations(font):
 
 
 def particle_instances(font, specs):
-    """Temporary static instances for the particle combinations, in a copy of the font (the open font is not touched).
-    Returns (copy, instances): keep the copy alive while the instances are used."""
-    work = font.copy()
-    for instance in list(work.instances):
-        work.removeInstance_(instance)
+    """Temporary static instances for the particle combinations, added to the open font: the export then follows the same path as an
+    instance made by hand (a copy of the font crashed Glyphs: its components are linked lazily, in parallel, during the export).
+    The caller has to remove them afterwards (see remove_instances)."""
     instances = []
     for spec in specs:
         instance = GSInstance()
         instance.name = spec["name"]
-        work.instances.append(instance)
+        font.instances.append(instance)
+        instances.append(instance)
         for axis_id, value in spec["values"].items():
             instance.setAxisInternalValueValue_forId_(value, axis_id)
         instance.isBold, instance.isItalic = spec["isBold"], spec["isItalic"]
@@ -168,8 +167,22 @@ def particle_instances(font, specs):
             instance.setWeightClassValue_(spec["weightClass"])
         if spec["widthClass"]:
             instance.setWidthClassValue_(spec["widthClass"])
-        instances.append(instance)
-    return work, instances
+    return instances
+
+
+def remove_instances(font, instances, was_edited):
+    """Takes the temporary instances out of the font again and, if the document was not edited before, clears its edited mark."""
+    for instance in instances:
+        try:
+            font.removeInstance_(instance)
+        except Exception:
+            pass
+    document = font.parent
+    if document is not None and not was_edited:
+        try:
+            document.updateChangeCount_(2)   # NSChangeCleared
+        except Exception:
+            pass
 
 
 def static_count(font):
@@ -799,7 +812,18 @@ def write_web_sample(font, release_dir, variable_instances, log=print):
 # ===== The export =====
 
 def export_release(font, release_dir, groups=GROUPS, label=None, log=print, client=""):
-    """Exports the groups of fonts into release_dir. Returns a list of problems (empty if all went well)."""
+    """Exports the groups of fonts into release_dir. Returns a list of problems (empty if all went well).
+    Static styles that come from particles are temporary instances of the font, removed again at the end (also after an error)."""
+    temporary = []
+    document = font.parent
+    was_edited = bool(document.isDocumentEdited()) if document is not None else True
+    try:
+        return _export_release(font, release_dir, groups, label, log, client, temporary)
+    finally:
+        remove_instances(font, temporary, was_edited)
+
+
+def _export_release(font, release_dir, groups, label, log, client, temporary):
     problems = []
     label = label or os.path.basename(release_dir.rstrip("/"))
     os.makedirs(release_dir, exist_ok=True)
@@ -808,7 +832,8 @@ def export_release(font, release_dir, groups=GROUPS, label=None, log=print, clie
     specs = particle_combinations(font) if ("otf" in groups or "ttf" in groups) else []
     if specs:
         try:
-            work_font, combos = particle_instances(font, specs)   # work_font is kept alive until the end of the export
+            combos = particle_instances(font, specs)
+            temporary.extend(combos)
             static = static + combos
             log("   %d static styles from the particles of the font (%d single instances)" % (len(combos), len(static) - len(combos)))
         except Exception as e:
