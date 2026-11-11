@@ -13,6 +13,7 @@ Uses the active instances of the font. Never overwrites a non-empty release fold
 
 import contextlib
 import importlib.util
+import itertools
 import os
 import re
 import shutil
@@ -24,7 +25,7 @@ import vanilla
 from fontTools.ttLib import TTFont, newTable
 from fontTools.ttLib.tables import ttProgram
 from vanilla.dialogs import askYesNo, getFolder
-from GlyphsApp import Glyphs, Message, INSTANCETYPESINGLE, INSTANCETYPEVARIABLE, OTF, TTF
+from GlyphsApp import Glyphs, GSInstance, Message, INSTANCETYPESINGLE, INSTANCETYPEVARIABLE, OTF, TTF
 
 TITLE = "Export Release Package"
 DEFAULTS_PREFIX = "com.plau.exportRelease."
@@ -100,6 +101,79 @@ def default_output_dir(font):
 
 def active_instances(font, kind):
     return [i for i in font.instances if i.active and i.type == kind]
+
+
+PARTICLE_TYPE = 4                           # GSInstance.type of a Glyphs 4 particle set (there is no constant for it)
+ELIDABLE_PARTICLES = ("", "Regular")        # name particles that are left out of a style name
+
+
+def width_class(value):
+    """usWidthClass (1-9) from a width in percent of normal."""
+    for limit, number_ in ((56.25, 1), (68.75, 2), (81.25, 3), (93.75, 4), (106.25, 5), (118.75, 6), (137.5, 7), (175, 8)):
+        if value <= limit:
+            return number_
+    return 9
+
+
+def particle_combinations(font):
+    """The static styles that the particle sets of the font (Font Info > Exports > Particles) stand for: one per combination of the
+    name particles of the axes. A particle set is not an instance by itself, Glyphs only expands it in its own Export dialog, so the
+    script has to do the same. Returns a list of dicts: name, axis values (internal), isBold, isItalic, linkStyle, weight/width class."""
+    specs, seen = [], set()
+    for particle_set in (i for i in font.instances if i.active and i.type == PARTICLE_TYPE):
+        axes = [a for a in font.axes if particle_set.nameParticles[a.axisId]]
+        if not axes:
+            continue
+        for combination in itertools.product(*[list(particle_set.nameParticles[a.axisId]) for a in axes]):
+            parts = [p.name for p in combination if p.name not in ELIDABLE_PARTICLES]
+            name = " ".join(parts) or "Regular"
+            if name in seen:
+                continue
+            seen.add(name)
+            values = {a.axisId: particle_set.axisInternalValueValueForId_(a.axisId) for a in font.axes}
+            spec = dict(name=name, values=values, isBold="Bold" in parts, isItalic="Italic" in parts, linkStyle=None, weightClass=None, widthClass=None)
+            for axis, particle in zip(axes, combination):
+                values[axis.axisId] = float(particle.internal if particle.internal is not None else particle.external)
+                shown = particle.external if particle.external is not None else particle.internal
+                if axis.axisTag == "wght" and shown is not None:
+                    spec["weightClass"] = max(1, min(1000, int(round(shown))))
+                elif axis.axisTag == "wdth" and shown is not None:
+                    spec["widthClass"] = width_class(shown)
+            if spec["isBold"] or spec["isItalic"]:
+                # the style this one is linked to inside its Windows family: the same name without Bold (or, for an Italic, without Italic)
+                rest = [p for p in parts if p != ("Bold" if spec["isBold"] else "Italic")]
+                spec["linkStyle"] = " ".join(rest) or "Regular"
+            specs.append(spec)
+    return specs
+
+
+def particle_instances(font, specs):
+    """Temporary static instances for the particle combinations, in a copy of the font (the open font is not touched).
+    Returns (copy, instances): keep the copy alive while the instances are used."""
+    work = font.copy()
+    for instance in list(work.instances):
+        work.removeInstance_(instance)
+    instances = []
+    for spec in specs:
+        instance = GSInstance()
+        instance.name = spec["name"]
+        work.instances.append(instance)
+        for axis_id, value in spec["values"].items():
+            instance.setAxisInternalValueValue_forId_(value, axis_id)
+        instance.isBold, instance.isItalic = spec["isBold"], spec["isItalic"]
+        if spec["linkStyle"]:
+            instance.linkStyle = spec["linkStyle"]
+        # OS/2 usWeightClass / usWidthClass (the Python properties are read-only, the native setters work)
+        if spec["weightClass"]:
+            instance.setWeightClassValue_(spec["weightClass"])
+        if spec["widthClass"]:
+            instance.setWidthClassValue_(spec["widthClass"])
+        instances.append(instance)
+    return work, instances
+
+
+def static_count(font):
+    return len(active_instances(font, INSTANCETYPESINGLE)) + len(particle_combinations(font))
 
 
 def generate_all(instances, fmt, destination, settings, containers=None):
@@ -731,6 +805,14 @@ def export_release(font, release_dir, groups=GROUPS, label=None, log=print, clie
     os.makedirs(release_dir, exist_ok=True)
     variable = active_instances(font, INSTANCETYPEVARIABLE)
     static = active_instances(font, INSTANCETYPESINGLE)
+    specs = particle_combinations(font) if ("otf" in groups or "ttf" in groups) else []
+    if specs:
+        try:
+            work_font, combos = particle_instances(font, specs)   # work_font is kept alive until the end of the export
+            static = static + combos
+            log("   %d static styles from the particles of the font (%d single instances)" % (len(combos), len(static) - len(combos)))
+        except Exception as e:
+            problems.append("Static styles from the particles could not be built (%s: %s)" % (type(e).__name__, e))
 
     if "variable" in groups or "web" in groups:
         if not variable:
@@ -761,7 +843,7 @@ def export_release(font, release_dir, groups=GROUPS, label=None, log=print, clie
                 shutil.rmtree(temp, ignore_errors=True)
 
     if ("otf" in groups or "ttf" in groups) and not static:
-        log("   no active static instance: skipped the OTF and TTF folders")
+        log("   no active static instance or particle set: skipped the OTF and TTF folders")
         groups = tuple(g for g in groups if g not in ("otf", "ttf"))
 
     if "otf" in groups:
@@ -855,11 +937,10 @@ def fix_windows_fonts(folder, log=print):
 
 def summary(font, release_dir):
     """What the release folder holds, against what the font defines."""
-    static = active_instances(font, INSTANCETYPESINGLE)
     ttf_folder = os.path.join(release_dir, FOLDER_TTF)
     ttf_count = len(font_files(ttf_folder, (".ttf",))) + len(font_files(os.path.join(ttf_folder, FOLDER_RIBBI), (".ttf",)))
     return {
-        "static instances": len(static),
+        "static styles": static_count(font),
         FOLDER_VARIABLE: len(font_files(os.path.join(release_dir, FOLDER_VARIABLE), (".ttf",))),
         FOLDER_WEB: len(font_files(os.path.join(release_dir, FOLDER_WEB), WEB_FONT_EXTENSIONS)),
         FOLDER_OTF: len(font_files(os.path.join(release_dir, FOLDER_OTF), (".otf",))),
@@ -910,8 +991,8 @@ class ExportReleaseWindow(object):
         labels = (
             ("variable", "%s  (TTF)" % FOLDER_VARIABLE, "The variable font as TTF, without autohint."),
             ("web", "%s  (WOFF2 + CSS + HTML)" % FOLDER_WEB, "The variable font as WOFF2, plus a CSS file and a test HTML page (mekkablue's Variable Font Test HTML) made on the fly."),
-            ("otf", "%s" % FOLDER_OTF, "One OTF per active static instance, autohinted, overlaps removed."),
-            ("ttf", "%s  (+ Windows Font Fix, RIBBI subfolder)" % FOLDER_TTF, "One TTF per active static instance, then Windows Font Fix (its menu choices apply) and the four RIBBI styles into their own subfolder."),
+            ("otf", "%s" % FOLDER_OTF, "One OTF per active static instance (or per combination of the particles), autohinted, overlaps removed."),
+            ("ttf", "%s  (+ Windows Font Fix, RIBBI subfolder)" % FOLDER_TTF, "One TTF per active static instance (or per combination of the particles), then Windows Font Fix (its menu choices apply) and the four RIBBI styles into their own subfolder."),
         )
         for key, label, tip in labels:
             stored = Glyphs.defaults[DEFAULTS_PREFIX + key]
