@@ -25,7 +25,7 @@ import vanilla
 from fontTools.ttLib import TTFont, newTable
 from fontTools.ttLib.tables import ttProgram
 from vanilla.dialogs import askYesNo, getFolder
-from GlyphsApp import Glyphs, GSInstance, Message, INSTANCETYPESINGLE, INSTANCETYPEVARIABLE, OTF, TTF
+from GlyphsApp import Glyphs, Message, INSTANCETYPESINGLE, INSTANCETYPEVARIABLE, OTF, TTF
 
 TITLE = "Export Release Package"
 DEFAULTS_PREFIX = "com.plau.exportRelease."
@@ -147,42 +147,93 @@ def particle_combinations(font):
     return specs
 
 
-def particle_instances(font, specs):
-    """Temporary static instances for the particle combinations, added to the open font: the export then follows the same path as an
-    instance made by hand (a copy of the font crashed Glyphs: its components are linked lazily, in parallel, during the export).
-    The caller has to remove them afterwards (see remove_instances)."""
-    instances = []
-    for spec in specs:
-        instance = GSInstance()
-        instance.name = spec["name"]
-        font.instances.append(instance)
-        instances.append(instance)
-        for axis_id, value in spec["values"].items():
-            instance.setAxisInternalValueValue_forId_(value, axis_id)
-        instance.isBold, instance.isItalic = spec["isBold"], spec["isItalic"]
+OUTLINE_FORMATS = {OTF: 1, TTF: 2}          # GSOutlineFormatCFF, GSOutlineFormatTrueType
+EXPORT_STALL = 300                          # seconds without a new font before the script stops waiting for Glyphs
+
+
+def apply_particle_specs(font, instances):
+    """Glyphs expands a particle set into plain instances without style linking and with weight class 400 for all of them.
+    This sets, on those expanded instances (they are not part of the document): a clean name, Bold/Italic linking and the
+    weight and width classes from the particle values. Instances that the user made by hand are left alone."""
+    by_values = {}
+    for spec in particle_combinations(font):
+        by_values[tuple(round(spec["values"][a.axisId], 3) for a in font.axes)] = spec
+    own = [i for i in font.instances if i.type == INSTANCETYPESINGLE]
+    for instance in instances:
+        if any(instance == i for i in own):
+            continue
+        spec = by_values.get(tuple(round(instance.axisInternalValueValueForId_(a.axisId), 3) for a in font.axes))
+        if spec is None:
+            instance.setName_(" ".join(str(instance.name).split()) or "Regular")
+            continue
+        instance.setName_(spec["name"])
+        instance.setIsBold_(spec["isBold"])
+        instance.setIsItalic_(spec["isItalic"])
         if spec["linkStyle"]:
-            instance.linkStyle = spec["linkStyle"]
-        # OS/2 usWeightClass / usWidthClass (the Python properties are read-only, the native setters work)
+            instance.setLinkStyle_(spec["linkStyle"])
         if spec["weightClass"]:
             instance.setWeightClassValue_(spec["weightClass"])
         if spec["widthClass"]:
             instance.setWidthClassValue_(spec["widthClass"])
-    return instances
 
 
-def remove_instances(font, instances, was_edited):
-    """Takes the temporary instances out of the font again and, if the document was not edited before, clears its edited mark."""
-    for instance in instances:
-        try:
-            font.removeInstance_(instance)
-        except Exception:
-            pass
-    document = font.parent
-    if document is not None and not was_edited:
-        try:
-            document.updateChangeCount_(2)   # NSChangeCleared
-        except Exception:
-            pass
+def export_static(font, fmt, destination, settings, log=print):
+    """Exports the static fonts with the exporter of Glyphs itself, the one behind File > Export: it expands the particle sets and
+    exports the instances in the background, which is fast and, unlike instance.generate() in a loop, did not crash Glyphs 4.2.
+    The document is not touched. Returns a list of problems."""
+    import objc
+    from Foundation import NSDate, NSMutableDictionary, NSRunLoop, NSURL
+    try:
+        plugin = objc.lookUpClass("GlyphsFileFormatOTF").alloc().init()
+        plugin.setFont_(font)
+        outline = OUTLINE_FORMATS[fmt]
+        result = plugin.activeInstancesWithOutlineFormat_error_(outline, None)
+        instances = [i for i in list((result[0] if isinstance(result, tuple) else result) or []) if i.type == INSTANCETYPESINGLE]
+        options = NSMutableDictionary.new()
+        plugin.generalOptions_(options)
+    except Exception as e:
+        # an older Glyphs without this exporter: the instances made by hand, one at a time
+        log("   the exporter of Glyphs is not available (%s): exporting the single instances one by one, particles are skipped" % e)
+        return generate_all(active_instances(font, INSTANCETYPESINGLE), fmt, destination, settings)
+    if not instances:
+        return []
+    apply_particle_specs(font, instances)
+    options["outlineFormat"] = outline
+    options["autohint"] = bool(settings.get("autoHint", True))
+    options["removeOverlap"] = bool(settings.get("removeOverlap", True))
+    options["showInFinder"] = False
+    options["testInstall"] = False
+    options["containers"] = ["plain"]
+    os.makedirs(destination, exist_ok=True)
+    extension = ".otf" if fmt == OTF else ".ttf"
+
+    def fresh(started):
+        """name -> size of the fonts written since the export started"""
+        found = {}
+        for name in font_files(destination, (extension,)):
+            path = os.path.join(destination, name)
+            try:
+                if os.path.getmtime(path) >= started - 1:
+                    found[name] = os.path.getsize(path)
+            except OSError:
+                pass
+        return found
+
+    started = time.time()
+    result = plugin.exportInstances_toURL_options_error_(instances, NSURL.fileURLWithPath_(destination), options, None)
+    if (result[0] if isinstance(result, tuple) else result) is False:
+        return ["%s: Glyphs refused to start the export (%s)" % (extension[1:].upper(), result[1] if isinstance(result, tuple) else "no reason given")]
+    # the export runs in the background: keep the app alive and wait until every font is there and no longer growing
+    seen, last_change = {}, time.time()
+    while True:
+        NSRunLoop.currentRunLoop().runUntilDate_(NSDate.dateWithTimeIntervalSinceNow_(0.5))
+        now = fresh(started)
+        if now != seen:
+            seen, last_change = now, time.time()
+        elif len(seen) >= len(instances) and time.time() - last_change >= 1.5:
+            return []
+        elif time.time() - last_change > EXPORT_STALL:
+            return ["%s: only %d of %d fonts were exported (no new font for %d s, see the messages of Glyphs)" % (extension[1:].upper(), len(seen), len(instances), EXPORT_STALL)]
 
 
 def static_count(font):
@@ -812,32 +863,12 @@ def write_web_sample(font, release_dir, variable_instances, log=print):
 # ===== The export =====
 
 def export_release(font, release_dir, groups=GROUPS, label=None, log=print, client=""):
-    """Exports the groups of fonts into release_dir. Returns a list of problems (empty if all went well).
-    Static styles that come from particles are temporary instances of the font, removed again at the end (also after an error)."""
-    temporary = []
-    document = font.parent
-    was_edited = bool(document.isDocumentEdited()) if document is not None else True
-    try:
-        return _export_release(font, release_dir, groups, label, log, client, temporary)
-    finally:
-        remove_instances(font, temporary, was_edited)
-
-
-def _export_release(font, release_dir, groups, label, log, client, temporary):
+    """Exports the groups of fonts into release_dir. Returns a list of problems (empty if all went well)."""
     problems = []
     label = label or os.path.basename(release_dir.rstrip("/"))
     os.makedirs(release_dir, exist_ok=True)
     variable = active_instances(font, INSTANCETYPEVARIABLE)
-    static = active_instances(font, INSTANCETYPESINGLE)
-    specs = particle_combinations(font) if ("otf" in groups or "ttf" in groups) else []
-    if specs:
-        try:
-            combos = particle_instances(font, specs)
-            temporary.extend(combos)
-            static = static + combos
-            log("   %d static styles from the particles of the font (%d single instances)" % (len(combos), len(static) - len(combos)))
-        except Exception as e:
-            problems.append("Static styles from the particles could not be built (%s: %s)" % (type(e).__name__, e))
+    static = static_count(font) if ("otf" in groups or "ttf" in groups) else 0
 
     if "variable" in groups or "web" in groups:
         if not variable:
@@ -873,12 +904,12 @@ def _export_release(font, release_dir, groups, label, log, client, temporary):
 
     if "otf" in groups:
         folder = os.path.join(release_dir, FOLDER_OTF)
-        problems += generate_all(static, OTF, folder, STATIC_SETTINGS)
+        problems += export_static(font, OTF, folder, STATIC_SETTINGS, log)
         log("   %s: %d fonts" % (FOLDER_OTF, len(font_files(folder, (".otf",)))))
 
     if "ttf" in groups:
         folder = os.path.join(release_dir, FOLDER_TTF)
-        problems += generate_all(static, TTF, folder, STATIC_SETTINGS)
+        problems += export_static(font, TTF, folder, STATIC_SETTINGS, log)
         log("   %s: %d fonts exported" % (FOLDER_TTF, len(font_files(folder, (".ttf",)))))
         problems += fix_windows_fonts(folder, log)
         problems += check_style_linking(release_dir, log)
